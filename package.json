@@ -1,0 +1,24 @@
+{
+  "name": "nobostate",
+  "version": "1.0.0",
+  "description": "No boilerplate state management",
+  "license": "MIT",
+  "devDependencies": {
+    "@babel/core": "^7.12.9",
+    "@babel/preset-env": "^7.12.7",
+    "@babel/preset-typescript": "^7.12.7",
+    "@types/jest": "^26.0.17",
+    "@types/lodash": "^4.14.165",
+    "babel-jest": "^26.6.3",
+    "jest": "^26.6.3",
+    "typescript": "^4.1.2"
+  },
+  "dependencies": {
+    "@types/react": "^17.0.0",
+    "lodash": "^4.17.20",
+    "react": "^17.0.1"
+  },
+  "scripts": {
+    "test": "jest "
+  }
+}
