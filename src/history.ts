@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { HasId, PropId, StateArray, StateArrayImpl, StateTable } from "./nobostate";
+import { HasId, PropId, StateArrayImpl, StateTableImpl } from "./nobostate";
 
 export interface HistoryUpdatePropAction {
   action: "updateProp";
@@ -13,7 +13,7 @@ export interface HistoryUpdatePropAction {
 export interface HistoryTableAction {
   action: "insert" | "remove";
   propId: PropId;
-  target: StateTable<any>;
+  target: StateTableImpl<any>;
   element: HasId<any>;
 }
 
@@ -26,8 +26,9 @@ export interface HistoryArrayAction {
 
 type HistoryAction = HistoryUpdatePropAction | HistoryArrayAction | HistoryTableAction;
 
-class HistoryGroup {
-  actions = [] as HistoryAction[];
+interface HistoryGroup {
+  mergeId: string | null;
+  actions: HistoryAction[];
 }
 
 export class NoboHistory {
@@ -35,16 +36,33 @@ export class NoboHistory {
   history: HistoryGroup[] = [];
   currentHistoryIndex = -1;
   ignorePropIds: PropId[]
-  grouping = false;
+  grouping = 0; // more than 0 when grouping.
   recording = true;
 
   constructor(ignorePropIds: PropId[]) {
     this.ignorePropIds = ignorePropIds;
+    // console.log("build history!");
   }
 
-  startGroup() { this.grouping = true; }
-  endGroup() { this.grouping = false; }
-  groupActions(f: () => void) {
+  startGroup() { this.grouping++; }
+  endGroup() { this.grouping--; if (this.grouping < 0) throw new Error(); }
+  group(mergeId: string, f: () => void) {
+    // if the last group has not the same merge id,
+    // create a new group.
+    // console.log(this.history.map(i => i.mergeId));
+
+    if (_.last(this.history)?.mergeId !== mergeId)
+    {
+      // console.log("new group,", _.last(this.history)?.mergeId, mergeId)
+      this.history.push({ mergeId, actions: [] });
+      this.currentHistoryIndex++;
+      // console.log(_.last(this.history)?.mergeId);
+    }
+    // else 
+      // console.log("no new group,", _.last(this.history)?.mergeId, mergeId)
+    
+    // console.log(this.history.map(i => i.mergeId));
+
     this.startGroup();
     try {
       f();
@@ -53,7 +71,7 @@ export class NoboHistory {
     }
   }
 
-  size() { return history.length; }
+  size() { return this.history.length; }
 
   push(item: HistoryAction) {
     if (!this.recording) return;
@@ -62,10 +80,13 @@ export class NoboHistory {
       return;
 
     // erase future if any.
+    // console.log("resize history to ", this.currentHistoryIndex + 1);
     this.history.length = this.currentHistoryIndex + 1;
+    // console.log("history size after resize", this.history.length);
 
     // if last group contains the same updateProp action.
-    if (item.action === "updateProp") {
+    // and if this group contains just 1 action.
+    if (item.action === "updateProp" && _.last(this.history)?.actions.length === 1) {
       let last = _.last(this.history);
       let sameUpdateInLast = last?.actions.find(e => e.target === item.target && e.propId === item.propId) as HistoryUpdatePropAction;
       if (sameUpdateInLast) {
@@ -82,8 +103,9 @@ export class NoboHistory {
       return;
     }
 
+    // console.log("PUSH NULL");
     // if item is not grouped, push a new item.
-    this.history.push({ actions: [item] });
+    this.history.push({ mergeId: null, actions: [item] });
     this.currentHistoryIndex += 1;
   }
 
@@ -99,7 +121,7 @@ export class NoboHistory {
     if (item.action === "insert")
       item.target.remove(item.element.id);
     if (item.action === "push")
-      item.target.pop();
+      (item.target as any as Array<any>).pop();
   }
 
   private redoAction(item: HistoryAction) {

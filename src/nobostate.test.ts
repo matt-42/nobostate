@@ -9,6 +9,7 @@ interface Todo {
 
 let state = createState({
   todos: Table<Todo>()
+  // todos: Array<Todo>()
 });
 
 test('insert/remove', () => {
@@ -18,7 +19,7 @@ test('insert/remove', () => {
   expect(state.todos.size).toBe(1);
 
   // state.todos[1]
-  let todo = state.todos["1"];
+  let todo = state.todos.assertGet("1");
   expect(todo.id).toEqual("1");
   expect(todo.nullable).toEqual(23);
   expect(todo.description).toEqual("test");
@@ -33,15 +34,15 @@ test('subscribe on object', () => {
   let called = false;
   state.todos.insert({ id: "1", description: "test", nullable: 23 });
 
-  // console.log(state.todos._assertGet("1")._subscribe);
-  state.todos["1"]._subscribe("nullable", nullable => {
+  // console.log(state.todos._assertassertGet("1")._subscribe);
+  state.todos.assertGet("1")._subscribe("nullable", nullable => {
     // console.log("call!!");
     expect(nullable).toBe(12);
     called = true;
   });
 
-  state.todos["1"].nullable = 12;
-  expect(state.todos["1"].nullable).toBe(12);
+  state.todos.assertGet("1").nullable = 12;
+  expect(state.todos.assertGet("1").nullable).toBe(12);
 
   expect(called).toBe(true);
 });
@@ -58,8 +59,8 @@ test('subscribe on table', () => {
     called = true;
   });
 
-  state.todos["1"].nullable = 12;
-  expect(state.todos["1"].nullable).toBe(12);
+  state.todos.assertGet("1").nullable = 12;
+  expect(state.todos.assertGet("1").nullable).toBe(12);
 
   expect(called).toBe(true);
   expect(called2).toBe(true);
@@ -88,14 +89,13 @@ test("table iterator", () => {
   state.todos.insert({ id: "1", description: "test", nullable: 23 });
   state.todos.insert({ id: "2", description: "test2", nullable: 24 });
 
-  let arr = [...state.todos.all()];
+  let arr = [...state.todos.values()];
 
   expect(arr.length).toBe(2);
   expect(arr[0].nullable).toBe(23);
   expect(arr[1].nullable).toBe(24);
 });
 
-// unwrap/revive
 test('unwrap', () => {
   let state = createState({
     todos: Table<Todo>()
@@ -108,18 +108,18 @@ test('unwrap', () => {
   })
 });
 
-test('revive', () => {
+test('load', () => {
   let state = createState({
     todos: Table<Todo>()
   });
 
-  state._revive({
+  state._load({
     todos: { _stateTable: [{ id: "1", description: "test", nullable: 23 }] }
   });
 
-  expect(state.todos["1"].id).toBe("1");
-  expect(state.todos["1"].description).toBe("test");
-  expect(state.todos["1"].nullable).toBe(23);
+  expect(state.todos.assertGet("1").id).toBe("1");
+  expect(state.todos.assertGet("1").description).toBe("test");
+  expect(state.todos.assertGet("1").nullable).toBe(23);
 });
 
 function subscribeCheck(state : any, key: any)
@@ -190,7 +190,7 @@ test('object update', () => {
 //   todos: Table<{id : string, test: Todo[]}>()
 // });
 
-// state2.todos["0"].test.
+// state2.todos.get("0").test.
 // // undo
 test('undo updateprop', () => {
   let state = createState({
@@ -198,12 +198,12 @@ test('undo updateprop', () => {
   });
   // console.log(state);
   state.todos.insert({ id: "1", description: "test", nullable: 23 });
-  state.todos["1"].nullable = 12;
-  expect(state.todos["1"].nullable).toBe(12);
+  state.todos.assertGet("1").nullable = 12;
+  expect(state.todos.assertGet("1").nullable).toBe(12);
   state._history.undo();
-  expect(state.todos["1"].nullable).toBe(23);
+  expect(state.todos.assertGet("1").nullable).toBe(23);
   state._history.redo();
-  expect(state.todos["1"].nullable).toBe(12);
+  expect(state.todos.assertGet("1").nullable).toBe(12);
 });
 
 test('undo insert', () => {
@@ -217,7 +217,7 @@ test('undo insert', () => {
   expect(state.todos.size).toBe(0);
   state._history.redo();
   expect(state.todos.size).toBe(1);
-  expect(state.todos["1"].nullable).toBe(23);
+  expect(state.todos.assertGet("1").nullable).toBe(23);
 });
 
 test('undo-remove', () => {
@@ -233,7 +233,7 @@ test('undo-remove', () => {
 
   state._history.undo();
   expect(state.todos.size).toBe(1);
-  expect(state.todos["1"].nullable).toBe(23);
+  expect(state.todos.assertGet("1").nullable).toBe(23);
 
   state._history.redo();
   expect(state.todos.size).toBe(0);
@@ -286,3 +286,81 @@ test('undo-group-push', () => {
 
 });
 
+
+test('undo-group', () => {
+  let state = createState({
+    todos: [] as Todo[]
+  });
+
+  state._history.group("push", () => {
+    state.todos.push({ id: "1", description: "test", nullable: 23 });
+    state.todos.push({ id: "1", description: "test", nullable: 24 });
+    state.todos.push({ id: "1", description: "test", nullable: 25 });
+  });
+
+  expect(state.todos[0].nullable).toBe(23);
+  expect(state.todos[1].nullable).toBe(24);
+  expect(state.todos[2].nullable).toBe(25);
+
+  expect(state.todos.length).toBe(3);
+
+  state._history.undo();
+  expect(state.todos.length).toBe(0);
+
+  state._history.redo();
+  expect(state.todos.length).toBe(3);
+  expect(state.todos[0].nullable).toBe(23);
+  expect(state.todos[1].nullable).toBe(24);
+  expect(state.todos[2].nullable).toBe(25);
+
+});
+
+
+test('undo-group-merge', () => {
+  let state = createState({
+    todos: [] as Todo[]
+  });
+
+  state._history.group("push", () => {
+    state.todos.push({ id: "1", description: "test", nullable: 23 });
+    state.todos.push({ id: "1", description: "test", nullable: 24 });
+    state.todos.push({ id: "1", description: "test", nullable: 25 });
+  });
+  expect(state._history.size()).toBe(1);
+
+  expect(state.todos[0].nullable).toBe(23);
+  expect(state.todos[1].nullable).toBe(24);
+  expect(state.todos[2].nullable).toBe(25);
+
+  expect(state.todos.length).toBe(3);
+
+  state._history.group("push", () => {
+    state.todos.push({ id: "1", description: "test", nullable: 26 });
+  });
+  expect(state._history.size()).toBe(1);
+  expect(state.todos.length).toBe(4);
+
+  state._history.group("push2", () => {
+    state.todos.push({ id: "1", description: "test", nullable: 26 });
+  });
+  expect(state._history.size()).toBe(2);
+  
+  expect(state.todos.length).toBe(5);
+  state._history.undo();
+  expect(state.todos.length).toBe(4);
+  state._history.redo();
+  expect(state.todos.length).toBe(5);
+  state._history.undo();
+  expect(state.todos.length).toBe(4);
+  state._history.undo();
+  expect(state.todos.length).toBe(0);
+
+});
+
+
+test('wrapped methods', () => {
+
+  let state = createState({  todos: Table<Todo>() });
+
+  expect(state.todos.size === 0);
+});

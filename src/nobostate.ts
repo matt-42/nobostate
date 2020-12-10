@@ -73,7 +73,6 @@ type ObjectPropsKeys<T> = {
 
 
 class StateBaseClass<T> {
-  _rootState: { _history : NoboHistory } | null = null;
   _parent: any | null = null;
   _propId: PropId;
   _ignoreProps: any[] = [];
@@ -163,7 +162,7 @@ function updateState(dst: any, prop: any, src: any) {
     for (let id of idsToRemove)
       toUpdate.remove(id);
     for (let elt of src._stateTable)
-      if ((toUpdate as StateTable<any>).has(elt.id))
+      if ((toUpdate as StateTable<any>)._wrapped.has(elt.id))
         updateState(toUpdate, elt.id, elt);
       else
         toUpdate.insert(elt);
@@ -196,8 +195,6 @@ export class StateArrayImpl<T> extends StateBaseClass<StateArrayImpl<T>>  {
 
   _wrapped = [] as StateType<T>[];
 
-  get length() { return this._wrapped.length; }
-
   push(...elements: T[]) {
     elements.forEach(elt => {
       let o = bindState(elt, this._propId, this._ignoreProps);
@@ -214,17 +211,13 @@ export class StateArrayImpl<T> extends StateBaseClass<StateArrayImpl<T>>  {
 
   }
 
-  pop() {
-    return this._wrapped.pop();
+  _get(i: number) {
+    return this._wrapped[i as number];
   }
 
-  _get(i: string | number | symbol) {
-    if (i === "length") {
-      // console.log("length!!");
-      return this._wrapped.length;
-    }
-
-    return this._wrapped[i as number];
+  _update(array: T[]) {
+    // for (let k in value)
+    //   updateState(this, k, value[k]);
   }
 
   _set(i: number, val: T) {
@@ -235,9 +228,6 @@ export class StateArrayImpl<T> extends StateBaseClass<StateArrayImpl<T>>  {
 
   use(index: number) { useNoboState(this, index); }
 
-  [Symbol.iterator]() {
-    return this._wrapped[Symbol.iterator]();
-  }
 }
 
 export interface HasId<T> { id: T };
@@ -265,12 +255,14 @@ export class StateTableImpl<O extends HasId<any>> extends StateBaseClass<StateTa
     } as HistoryTableAction)
   }
 
-  has(id: IdType<O>) { return this._wrapped.has(id); }
-
-  _get(id: IdType<O>) {
+  assertGet(id: IdType<O>) { 
     let res = this._wrapped.get(id);
     if (!res) throw new Error(`StateTable get error: id ${id.toString()} does not exists`);
     return res;
+  }
+
+  _get(id: IdType<O>) {
+    return this.assertGet(id);
   }
 
   _set(id: IdType<O>, val: O) {
@@ -278,14 +270,6 @@ export class StateTableImpl<O extends HasId<any>> extends StateBaseClass<StateTa
       updateState(this, id, val);
     else
       this.insert(val);
-  }
-
-  all() {
-    return this._wrapped.values();
-  }
-
-  get size() {
-    return this._wrapped.size;
   }
 
   remove(id: IdType<O>) {
@@ -343,17 +327,22 @@ class StateObjectImpl<T> extends StateBaseClass<StateObjectImpl<T>>{
 };
 
 
-function stateFactory<T>(ctor: any, ...args: any[]) {
-  let wrapped = new ctor(...args);
+function createProxy<T>(wrapped : any) {
   return new Proxy(wrapped, {
-    get: (target, prop) => {
-      if (target[prop] !== undefined || prop === "_revive" || prop === "_history")
+    get: (target, prop, receiver) => {
+      if (target[prop] !== undefined)
         return target[prop];
       else
-        return target._get(prop);
+      {
+        let value = target._wrapped[prop];
+        if (typeof value === "function")
+          return value.bind(target._wrapped);
+        else
+          return target._wrapped[prop];
+      }
     },
     set: (target, prop, value) => {
-      if (target[prop] !== undefined || prop === "_revive" || prop === "_history")
+      if (target[prop] !== undefined)
         target[prop] = value;
       else
         target._set(prop, value);
@@ -362,8 +351,37 @@ function stateFactory<T>(ctor: any, ...args: any[]) {
   }) as T;
 }
 
+function stateFactory<T>(ctor: any, ...args: any[]) {
+  return createProxy<T>(new ctor(...args));
+}
+
+type RootState<T> = PublicStateType<StateObject<T>> & {_load: (data: any) => void, _history: NoboHistory};
+
+function makeRootState<T>(state : T, propId : StatePropIdentifiers<RootState<T>>, options : { ignoreProps : PropId[], undoIgnoreProps: PropId[] }) {
+
+  let obj = {} as any;
+  for (let k in state)
+    (obj as any)[k] = bindState(state[k], propId, options.ignoreProps);
+  let wrapped = new StateObjectImpl<T>(obj, propId, options.ignoreProps);
+
+  let proxy = createProxy<RootState<T>>(_.assign(wrapped, {
+
+    // Load plain data into the state.
+    _load: (data: any) => {
+      for (let k in data)
+        updateState(proxy, k, data[k]);
+    },
+
+    // State action history.
+    _history: new NoboHistory(options.undoIgnoreProps)
+
+  }));
+
+  return proxy;
+}
+
 export type StateArray<T> = Array<StateType<T>> & StateArrayImpl<T>;
-export type StateTable<T extends HasId<any>> = { [id : string] : StateType<T> } & StateTableImpl<T>;
+export type StateTable<T extends HasId<any>> = Map<IdType<T>, StateType<T>> & StateTableImpl<T>;
 export type StateObject<T> = { [K in keyof T]: StateType<T[K]> } & StateObjectImpl<T>;
 
 const makeStateArray = <T>(...args: any[]) => stateFactory<StateArray<T>>(StateArrayImpl, ...args);
@@ -394,21 +412,6 @@ function createPropIds<T>(): StatePropIdentifiers<T> {
     }
   }) as any as StatePropIdentifiers<T>;
 }
-
-// function createStateMetadata<T>(root: T): StateMetadata<T> {
-//   let cpt = 0;
-//   return new Proxy({ propId: cpt++, root } as any, {
-//     get: (target, prop) => {
-//       let sprop = prop as string;
-//       if (target[sprop])
-//         return target[sprop];
-//       else {
-//         target[sprop] = { propId: cpt++, root: target.root };
-//         return target[sprop];
-//       }
-//     }
-//   }) as any as StateMetadata<T>;
-// }
 
 
 type StateType<T> =
@@ -489,7 +492,7 @@ type UnwrapedType<T> = {
 export function unwrapState<T extends StateType<any>>(state: T): UnwrapedType<T>;
 export function unwrapState<T extends StateType<any>>(state: T): any {
   if (state instanceof StateTableImpl) { // Table
-    return { _stateTable: [...state.all()].map(v => unwrapState(v)) };
+    return { _stateTable: [...state._wrapped.values()].map(v => unwrapState(v)) };
   }
   else if ((state as StateObjectImpl<any>)._wrapped) { // StateObject
     let obj = {} as any;
@@ -513,7 +516,7 @@ export function unwrapState<T extends StateType<any>>(state: T): any {
 type FilterInternalMethods<T> =
   T extends "_registerChild" | "_ignoreProps" | "_propsId" | "_notifySubscribers" |
   "_subscribers" | "_parentListener" | "_wrapped" |
-  "_get" | "_set" | "_propId" ?
+  "_get" | "_propId" | "_parent" ?
   never : T;
 
 type RemoveInternalMethods<T> = {
@@ -525,53 +528,27 @@ type PublicStateType<T> =
   { [K in keyof O]: PublicStateType<StateType<O[K]>> } & RemoveInternalMethods<StateObjectImpl<O>> :
 
   T extends StateTableImpl<infer O> ?
-  { [key: string]: PublicStateType<StateType<O>> } & RemoveInternalMethods<StateTableImpl<O>> :
+  Map<IdType<O>, PublicStateType<StateType<O>>> & RemoveInternalMethods<StateTableImpl<O>> :
 
   T extends StateArrayImpl<infer O> ?
-  { [i: number]: PublicStateType<StateType<O>> } & RemoveInternalMethods<StateArrayImpl<O>> & { [Symbol.iterator](): Iterator<PublicStateType<StateType<O>>> } :
+  Array<PublicStateType<StateType<O>>> & RemoveInternalMethods<StateArrayImpl<O>>  :
   T;
 
 export function createState<T>(state: T, options_?: {
-  ignoreProps?: (propIds: StatePropIdentifiers<StateType<T>>) => PropId[]
-  undoIgnore?: (propIds: StatePropIdentifiers<StateType<T>>) => PropId[],
+  ignoreProps?: (propIds: StatePropIdentifiers<RootState<T>>) => PropId[]
+  undoIgnore?: (propIds: StatePropIdentifiers<RootState<T>>) => PropId[],
 })
-  : PublicStateType<StateType<T>> & {
-    _revive: (data: any) => void
-    _history: NoboHistory
-  } {
+  : RootState<T> {
 
-  let propsIds = createPropIds<StateType<T>>();
+  let propsIds = createPropIds<RootState<T>>();
 
   let options = {
     ignoreProps: options_?.ignoreProps?.(propsIds) || [],
     undoIgnoreProps: options_?.ignoreProps?.(propsIds) || []
   }
 
-  // let metadata = createStateMetadata<StateType<T>>(propsIds);
-  let b = bindState(state, propsIds, options.ignoreProps);
-  
-  return _.assign(b as PublicStateType<StateType<T>>, {
-    _revive: (data: any) => {
-      for (let k in data)
-      {
-        updateState(b, k, data[k]);
-      }
-      
-      // updateState(b, )
-      // let revived = bindState(data, propsIds, options.ignoreProps);
-      // for (let k in revived._wrapped)
-      // {
-      //   console.log(k, revived._wrapped[k]._parentListener);
-      //   (b as any)._wrapped[k] = revived._wrapped[k];
-      //   if (revived._wrapped[k] && revived._wrapped[k]._parentListener)
-      //     (b as any)._registerChild(k, revived._wrapped[k]);
-      // }
-      // console.log("revived", b);
-      // _.assign(b, bindState(data, propsIds, options.ignoreProps)); 
+  return makeRootState(state, propsIds, options);
 
-    },
-    _history: new NoboHistory(options.undoIgnoreProps)
-  });
 }
 
 // interface Todo {

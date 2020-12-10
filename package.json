@@ -19,6 +19,6 @@
     "react": "^17.0.1"
   },
   "scripts": {
-    "test": "jest"
+    "test": "jest -t undo-group-merge"
   }
 }
