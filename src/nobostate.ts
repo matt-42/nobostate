@@ -4,7 +4,7 @@
 //   
 /* eslint-disable */
 
-import _, { update } from "lodash";
+import _ from "lodash";
 import { useEffect, useState } from "react";
 import { HistoryArrayAction, HistoryTableAction, HistoryUpdatePropAction, NoboHistory } from "./history";
 
@@ -44,66 +44,87 @@ import { HistoryArrayAction, HistoryTableAction, HistoryUpdatePropAction, NoboHi
 
 // declare the state:
 
-
-function useNoboState(state: any, prop: any) {
+function useNoboState(state: any, prop?: any) {
 
   const [, setRefreshToggle] = useState({});
-  const [value, setValue] = useState(state._get(prop));
+  const [value, setValue] = useState(prop ? state._get(prop) : state);
+
   useEffect(() => {
-    return state._subscribe(prop, () => {
-      setValue(state._get(prop));
+    let listener = _.throttle(() => {
+      setValue(prop ? state._get(prop) : state);
       setRefreshToggle({});
-    });
+    }, 50);
+
+    if (prop)
+      return state._subscribe(prop, listener);
+    else
+      return state._subscribe(listener);
+
   }, []);
   return value;
 }
 
 
-
-type SubscriberArray<T> = ((value: T) => void)[];
+export type Subscriber<T> = (value: T, key: StateKeyType<T>) => void
+type SubscriberArray<T> = Subscriber<T>[];
 
 type StateKeyType<T> =
   T extends StateTableImpl<any> ? string :
   T extends StateObjectImpl<infer O> ? ObjectPropsKeys<O> :
-  T extends StateArrayImpl<any> ? number : string;
+  // T extends StateArrayImpl<any> ? number : 
+  // T extends StateObjectArrayImpl<any> ? number :   
+  number;
+
+
+
 
 type ObjectPropsKeys<T> = {
   [K in keyof T]: T[K] extends Function ? never : K;
 }[keyof T];
 
 
-class StateBaseClass<T> {
+type StateBaseExactType<T> =
+  T extends StateTableImpl<infer O> ? StateTable<O> :
+  T extends StateObject<infer O> ? StateObject<O> :
+  T;
+
+export class StateBaseClass<T> {
   _parent: any | null = null;
-  _propId: PropId;
-  _ignoreProps: any[] = [];
+  _propId: PropId = null as any;
 
   _subscribers: { [K in StateKeyType<T>]?: SubscriberArray<T> } = {};
+  _thisSubscribers: SubscriberArray<T> = [];
   _parentListener: (() => void) | null = null;
-
-  constructor(propIds: any, ignoreProps: any[]) {
-    this._propId = propIds;
-    this._ignoreProps = ignoreProps;
-  }
 
   _getRootState() {
     let it = this;
     while (it._parent)
       it = it._parent;
-    return it as any as { _history : NoboHistory } ;
+    return it as any as { _history: NoboHistory };
   }
 
-  _subscribe(propOrId: StateKeyType<T>, listener: (val: any) => void) {
-    this._subscribers[propOrId] ||= [];
-    let subs = this._subscribers[propOrId] as SubscriberArray<T>;
-    subs.push(listener);
-    return () => { _.remove(subs, s => s === listener); }
+
+  _subscribeImpl(arg1: any, arg2?: any): () => void {
+    if (arg2 === undefined) {
+      let listener = arg1 as Subscriber<T>;
+      this._thisSubscribers.push(listener);
+      return () => _.remove(this._thisSubscribers, s => s === listener)
+    }
+    else {
+      let propOrId = arg1 as StateKeyType<T>;
+      let listener = arg2 as () => void;
+      this._subscribers[propOrId] ||= [];
+      let subs = this._subscribers[propOrId] as SubscriberArray<T>;
+      subs.push(listener);
+      return () => { _.remove(subs, s => s === listener); }
+    }
   }
 
-  // A prop has been update.
+  // A prop has been updated.
   // notify subscribers and the parent.
   _notifySubscribers(propOrId: StateKeyType<T>, value: any) {
-
-    this._subscribers[propOrId]?.forEach(sub => sub(value));
+    this._thisSubscribers.forEach(sub => sub(value, propOrId));
+    this._subscribers[propOrId]?.forEach(sub => sub(value, propOrId));
     this._parentListener?.();
   }
 
@@ -118,6 +139,28 @@ class StateBaseClass<T> {
     }
   }
 
+  /**
+   * Refresh everytime selector return a different value.
+   * Deep comparison (_.isEqual) is used to compare values.  
+   */
+  _useSelector<R>(selector: (o: StateBaseExactType<T>) => R) {
+    const impl: StateBaseExactType<T> = this as any;
+    const [, setRefreshToggle] = useState({});
+    const [value, setValue] = useState(selector(impl));
+    useEffect(() => {
+      let prev: any = null;
+      return this._subscribeImpl(_.throttle(() => {
+        let next = selector(impl);
+        if (!_.isEqual(prev, next)) {
+          prev = next;
+          setValue(selector(impl));
+          setRefreshToggle({});
+        }
+
+      }, 50, { trailing: true }));
+    }, []);
+    return value;
+  }
 }
 /**
  * Update prop \prop of state dst with value src.
@@ -133,16 +176,28 @@ function updateState(dst: any, prop: any, src: any) {
     o instanceof StateTableImpl);
 
   let toUpdate = dst[prop];
-  if (toUpdate instanceof StateArrayImpl) {
-    toUpdate._wrapped.length = src.length;
-    for (let i = 0; i < src.length; i++) {
-      if (isPrimitive(toUpdate._wrapped[i])) {
-        toUpdate._wrapped[i] = src[i];
-        toUpdate._notifySubscribers(i, toUpdate._wrapped[i]);
+  if (toUpdate instanceof StateArrayImpl || toUpdate instanceof StateObjectArrayImpl) {
+    let arrayToUpdate = toUpdate as any as StateArray<any>;
+    // Resize dst array if too large.
+    while (arrayToUpdate._wrapped.length > src.length)
+      arrayToUpdate.pop();
+
+    // Update existing elements of the array.
+    for (let i = 0; i < arrayToUpdate.length; i++) {
+      if (isPrimitive(arrayToUpdate[i])) {
+        arrayToUpdate[i] = src[i];
+        toUpdate._notifySubscribers(i, arrayToUpdate[i]);
       }
       else
-        updateState(toUpdate._wrapped, i, src[i]);
+        updateState(arrayToUpdate, i, src[i]);
     }
+    // Insert new elements.
+    for (let i = arrayToUpdate.length; i < src.length; i++) {
+      arrayToUpdate.push(src[i]);
+    }
+    // Check that arrayToUpdate and src have the same size.    
+    if (arrayToUpdate.length != src.length)
+      throw new Error();
   }
   else if (toUpdate instanceof StateObjectImpl) {
     let obj = toUpdate as any;
@@ -157,8 +212,8 @@ function updateState(dst: any, prop: any, src: any) {
     }
   }
   else if (toUpdate instanceof StateTableImpl) {
-    let newKeys = src._stateTable.map((e : any) => e.id);
-    let idsToRemove = _.difference([... toUpdate.ids()], newKeys);
+    let newKeys = src._stateTable.map((e: any) => e.id);
+    let idsToRemove = _.difference([...toUpdate.ids()], newKeys);
     for (let id of idsToRemove)
       toUpdate.remove(id);
     for (let elt of src._stateTable)
@@ -175,12 +230,13 @@ function updateState(dst: any, prop: any, src: any) {
       dst._wrapped[prop] = src;
       dst._notifySubscribers(prop, src);
 
-      // console.log(dst._getRootState()._wrapped._history);
+      // console.log(prop);
+      // console.log(dst._getRootState());
       let history = dst._getRootState()._history;
       // console.log(history.push);
       history.push({
         action: "updateProp",
-        target: dst._wrapped,
+        target: dst,
         prop: prop,
         propId: dst._propId[prop],
         prev,
@@ -191,13 +247,18 @@ function updateState(dst: any, prop: any, src: any) {
   }
 }
 
-export class StateArrayImpl<T> extends StateBaseClass<StateArrayImpl<T>>  {
+export class StateObjectArrayImpl<T> extends StateBaseClass<StateObjectArrayImpl<T>>  {
 
-  _wrapped = [] as StateType<T>[];
+  _isObjectArray = true; // Just to differenciate with StateArrayImpl
+  _wrapped = [] as T[];
 
   push(...elements: T[]) {
     elements.forEach(elt => {
-      let o = bindState(elt, this._propId, this._ignoreProps);
+      let o: StateObject<T> = elt instanceof StateBaseClass ? elt as any : stateObject(elt);
+
+      // let o = stateObject<T>(elt, this._propId);
+      propagatePropIds(o, this._propId);
+
       this._wrapped.push(o);
       this._registerChild(this._wrapped.length - 1, o);
       this._notifySubscribers(this._wrapped.length - 1, o);
@@ -205,7 +266,7 @@ export class StateArrayImpl<T> extends StateBaseClass<StateArrayImpl<T>>  {
         action: "push",
         propId: this._propId,
         target: this,
-        element: o as StateType<T>
+        element: o
       } as HistoryArrayAction)
     });
 
@@ -215,9 +276,42 @@ export class StateArrayImpl<T> extends StateBaseClass<StateArrayImpl<T>>  {
     return this._wrapped[i as number];
   }
 
-  _update(array: T[]) {
-    // for (let k in value)
-    //   updateState(this, k, value[k]);
+  _set(i: number, val: T) {
+    if (this._wrapped.length <= i)
+      throw new Error(`StateArray: access out of bound (index: ${i}, array size: ${this._wrapped.length})`);
+    updateState(this, i, val);
+  }
+
+  _use(): StateObjectArray<T>
+  _use(index: number): T
+  _use(index?: any): any { return useNoboState(this, index); }
+
+  _subscribe(listener: Subscriber<StateObjectArray<T>>): () => void
+  _subscribe(propOrId: string, listener: Subscriber<T>): () => void
+  _subscribe(arg1: any, arg2?: any): () => void { return this._subscribeImpl(arg1, arg2); }
+
+}
+export class StateArrayImpl<T> extends StateBaseClass<StateArrayImpl<T>>
+{
+
+  _wrapped = [] as T[];
+
+  push(...elements: T[]) {
+    elements.forEach(elt => {
+      this._wrapped.push(elt);
+      this._notifySubscribers(this._wrapped.length - 1, elt);
+      this._getRootState()._history.push({
+        action: "push",
+        propId: this._propId,
+        target: this,
+        element: elt
+      } as HistoryArrayAction)
+    });
+
+  }
+
+  _get(i: number) {
+    return this._wrapped[i as number];
   }
 
   _set(i: number, val: T) {
@@ -226,7 +320,14 @@ export class StateArrayImpl<T> extends StateBaseClass<StateArrayImpl<T>>  {
     updateState(this, i, val);
   }
 
-  use(index: number) { useNoboState(this, index); }
+  _use(): StateArray<T>
+  _use(index: number): T
+  _use(index?: any): any { return useNoboState(this, index); }
+
+  _subscribe(listener: Subscriber<StateArray<T>>): () => void
+  _subscribe(propOrId: string, listener: Subscriber<T>): () => void
+  _subscribe(arg1: any, arg2?: any): () => void { return this._subscribeImpl(arg1, arg2); }
+
 
 }
 
@@ -236,11 +337,25 @@ export class StateTableImpl<O extends HasId<any>> extends StateBaseClass<StateTa
 
   _wrapped = new Map<IdType<O>, StateObject<O>>();
 
-  use(propOrId: IdType<O>) { useNoboState(this, propOrId); }
+  _use(): StateTable<O>
+  _use(id: IdType<O>): O
+  _use(id?: IdType<O>): any { return useNoboState(this, id); }
+
+  _useIds() { return this._useSelector(table => [...table.keys()]); }
+
+  _subscribe(listener: Subscriber<StateTable<O>>): () => void
+  _subscribe(propOrId: string, listener: Subscriber<O>): () => void
+  _subscribe(arg1: any, arg2?: any): () => void { return this._subscribeImpl(arg1, arg2); }
 
   ids() { return this._wrapped.keys(); }
+
+  map<R>(f: (o: StateObject<O>) => R) { return [...this._wrapped.values()].map(f); }
+  flatMap<R>(f: (o: StateObject<O>) => R) { return [...this._wrapped.values()].flatMap(f); }
+  forEach(f: (o: StateObject<O>) => void) { return [...this._wrapped.values()].forEach(f); }
+
   insert(value: O) {
-    let elt = bindState(value, this._propId, this._ignoreProps) as StateObject<O>;
+    let elt: StateObject<O> = value instanceof StateBaseClass ? value as any : stateObject(value);
+    propagatePropIds(elt, this._propId);
     let id = (elt as any).id;
     this._registerChild(id, elt);
     this._wrapped.set(id, elt);
@@ -251,11 +366,11 @@ export class StateTableImpl<O extends HasId<any>> extends StateBaseClass<StateTa
       action: "insert",
       propId: this._propId,
       target: this,
-      element: value
+      element: elt
     } as HistoryTableAction)
   }
 
-  assertGet(id: IdType<O>) { 
+  assertGet(id: IdType<O>) {
     let res = this._wrapped.get(id);
     if (!res) throw new Error(`StateTable get error: id ${id.toString()} does not exists`);
     return res;
@@ -273,7 +388,7 @@ export class StateTableImpl<O extends HasId<any>> extends StateBaseClass<StateTa
   }
 
   remove(id: IdType<O>) {
-    let elt = this._wrapped.get(id); 
+    let elt = this._wrapped.get(id);
     this._wrapped.delete(id);
     this._notifySubscribers(id, null);
     this._getRootState()._history.push({
@@ -294,16 +409,12 @@ export function Table<T extends HasId<any>>(): RawTable<T> {
 }
 
 
-type StateObjectData<T> = {
-  [P in keyof T]: StateType<T[P]>;
-}
-
 class StateObjectImpl<T> extends StateBaseClass<StateObjectImpl<T>>{
 
-  _wrapped: StateObjectData<T>;
+  _wrapped: T;
 
-  constructor(data: StateObjectData<T>, propIds: any, ignoreProps: any[]) {
-    super(propIds, ignoreProps);
+  constructor(data: T) {
+    super();
 
     this._wrapped = data;
     for (let k in this._wrapped)
@@ -322,18 +433,23 @@ class StateObjectImpl<T> extends StateBaseClass<StateObjectImpl<T>>{
       updateState(this, k, value[k]);
   }
 
-  _use(propOrId: ObjectPropsKeys<T>) { useNoboState(this, propOrId); }
+  _use(): StateObject<T>
+  _use<K extends keyof T>(prop: K): T[K]
+  _use(prop?: any): any { return useNoboState(this, prop); }
+
+  _subscribe(listener: Subscriber<StateObject<T>>): () => void
+  _subscribe<K extends keyof T>(propOrId: K, listener: Subscriber<T[K]>): () => void
+  _subscribe(arg1: any, arg2?: any): () => void { return this._subscribeImpl(arg1, arg2); }
 
 };
 
 
-function createProxy<T>(wrapped : any) {
+function createProxy<T>(wrapped: any) {
   return new Proxy(wrapped, {
     get: (target, prop, receiver) => {
       if (target[prop] !== undefined)
         return target[prop];
-      else
-      {
+      else {
         let value = target._wrapped[prop];
         if (typeof value === "function")
           return value.bind(target._wrapped);
@@ -341,11 +457,11 @@ function createProxy<T>(wrapped : any) {
           return target._wrapped[prop];
       }
     },
-    set: (target, prop, value) => {
+    set: (target, prop, value, receiver) => {
       if (target[prop] !== undefined)
         target[prop] = value;
       else
-        target._set(prop, value);
+        receiver._set(prop, value);
       return true
     },
   }) as T;
@@ -355,21 +471,39 @@ function stateFactory<T>(ctor: any, ...args: any[]) {
   return createProxy<T>(new ctor(...args));
 }
 
-type RootState<T> = PublicStateType<StateObject<T>> & {_load: (data: any) => void, _history: NoboHistory};
+type ReadOnly<T> =
+  T extends Array<any> ? T :
+  T extends Object ? {
+    readonly [P in keyof T]: ReadOnly<T[P]>;
+  } : T;
 
-function makeRootState<T>(state : T, propId : StatePropIdentifiers<RootState<T>>, options : { ignoreProps : PropId[], undoIgnoreProps: PropId[] }) {
+type ReadOnlyNonStateTypes<T> =
+  T extends StateObject<infer O> ? StateObject<{ [P in keyof O]: ReadOnlyNonStateTypes<O[P]>; }> :
+  T extends StateTable<infer O> ? StateTable<{ [P in keyof O]: ReadOnlyNonStateTypes<O[P]>; }> :
+  T extends StateArray<infer O> ? StateArray<ReadOnlyNonStateTypes<O>> :
+  T extends StateObjectArray<infer O> ? StateObjectArray<{ [P in keyof O]: ReadOnlyNonStateTypes<O[P]>; }> :
+  ReadOnly<T>;
+
+
+type RootState<T> = PublicStateType<ReadOnlyNonStateTypes<StateObject<T>>> & { _load: (data: any) => void, _history: NoboHistory };
+
+
+function makeRootState<T>(state: T, propId: PropId, options: { undoIgnoreProps: PropId[] }) {
 
   let obj = {} as any;
   for (let k in state)
-    (obj as any)[k] = bindState(state[k], propId, options.ignoreProps);
-  let wrapped = new StateObjectImpl<T>(obj, propId, options.ignoreProps);
+    (obj as any)[k] = state[k];
+  let wrapped = new StateObjectImpl<T>(obj);
+
+  propagatePropIds(wrapped, propId as PropId);
 
   let proxy = createProxy<RootState<T>>(_.assign(wrapped, {
 
     // Load plain data into the state.
     _load: (data: any) => {
-      for (let k in data)
-        updateState(proxy, k, data[k]);
+      let loadedState = bindState(data);
+      for (let k in loadedState)
+        updateState(proxy, k, loadedState[k]);
     },
 
     // State action history.
@@ -380,13 +514,18 @@ function makeRootState<T>(state : T, propId : StatePropIdentifiers<RootState<T>>
   return proxy;
 }
 
-export type StateArray<T> = Array<StateType<T>> & StateArrayImpl<T>;
-export type StateTable<T extends HasId<any>> = Map<IdType<T>, StateType<T>> & StateTableImpl<T>;
-export type StateObject<T> = { [K in keyof T]: StateType<T[K]> } & StateObjectImpl<T>;
+export type StateArray<T> = Array<T> & StateArrayImpl<T>;
+export type StateObjectArray<T> = Array<T> & StateObjectArrayImpl<T>;
+export type StateTable<T extends HasId<any>> = Map<IdType<T>, T> & StateTableImpl<T>;
+export type StateObject<T> = T & StateObjectImpl<T>;
 
-const makeStateArray = <T>(...args: any[]) => stateFactory<StateArray<T>>(StateArrayImpl, ...args);
-const makeStateObject = <T>(...args: any[]) => stateFactory<StateObject<T>>(StateObjectImpl, ...args);
-const makeStateTable = <T extends HasId<any>>(...args: any[]) => stateFactory<StateTable<T>>(StateTableImpl, ...args);
+type xxx = StateObject<number | null>;
+// StateObject<T | null> = T & StateObjectImpl<T>;
+// Factories.
+export const stateArray = <T>() => stateFactory<StateArray<T>>(StateArrayImpl);
+export const stateObjectArray = <T>() => stateFactory<StateObjectArray<T>>(StateObjectArrayImpl);
+export const stateObject = <T>(data: T) => stateFactory<StateObject<T>>(StateObjectImpl, data);
+export const stateTable = <T extends HasId<any>>() => stateFactory<StateTable<T>>(StateTableImpl);
 
 export type PropId = { [key: string]: PropId } & { _propId: number };
 
@@ -394,9 +533,11 @@ type StatePropIdentifiers<T> =
   T extends null ? PropId :
   T extends string ? PropId :
   T extends number ? PropId :
+  T extends StateObject<infer V> ? { [K in keyof V]: StatePropIdentifiers<V[K]> } :
   T extends StateArray<infer V> ? StatePropIdentifiers<V> :
+  T extends StateObjectArray<infer V> ? StatePropIdentifiers<V> :
   T extends StateTable<infer V> ? StatePropIdentifiers<V> :
-  { [K in keyof T]: StatePropIdentifiers<T[K]> };
+  PropId;
 
 function createPropIds<T>(): StatePropIdentifiers<T> {
   let cpt = 0;
@@ -414,56 +555,65 @@ function createPropIds<T>(): StatePropIdentifiers<T> {
 }
 
 
-type StateType<T> =
-  T extends null ? T :
-  T extends string ? T :
-  T extends number ? T :
-  T extends StateTable<any> ? T :
-  T extends Array<infer O> ? StateArray<O> :
-  T extends RawTable<infer O> ? StateTable<O> :
-  T extends Object ? StateObject<T> :
-  T;
+function propagatePropIds<T>(state: T, propId: PropId): void {
 
+  if (state instanceof StateBaseClass)
+    state._propId = propId;
+
+  if (state instanceof StateTableImpl) {
+    for (let obj of (state as any as StateTable<any>).values())
+      propagatePropIds(obj, propId);
+  }
+  else if (state instanceof StateObjectImpl) {
+    for (let k in state._wrapped)
+      propagatePropIds(state._wrapped[k], propId[k]);
+  }
+  else if (state instanceof StateArrayImpl || state instanceof StateObjectArrayImpl) {
+    for (let k of state as any as StateArray<any>)
+      propagatePropIds(k, propId);
+  }
+
+}
 
 /**
  * From a plain javascript object, create a state object.
  * To create table:
  *   - { _stateTable: [...] }
  *   - new StateTable<T>()
- * To create an object: { props... }
+ * To create an object: { _stateObject: props... }
  * @param state 
  * @param propId 
  * @param ignoreProps 
  */
-function bindState<T>(state: T, propId: any, ignoreProps: any[]): StateType<T>;
-function bindState<T>(state: any,
-  propId = createPropIds() as any,
-  ignoreProps: any[] = []): any {
+function bindState(state: any): any {
 
   // Do not re-bind already bound objects.
   if (state._registerChild) return state;
 
-  if (ignoreProps.find(p => p._propId === propId._propId)) {
-    return state;
-  }
   // map.
   else if (state._stateTable) {
-    let table = makeStateTable(propId, ignoreProps);
+    let table = stateTable();
     state._stateTable.forEach((elt: any) => table.insert(elt));
-    return table;
+    return table as any;
   }
   // Array
-  else if (state instanceof Array) {
-    let arr = makeStateArray(propId, ignoreProps);
+  else if (state._stateArray) {
+    let arr = stateArray();
     arr.push(...state);
-    return arr;
+    return arr as any;
+  }
+  // Object Array.
+  else if (state._stateObjectArray) {
+    let arr = stateObjectArray();
+    arr.push(...state);
+    return arr as any;
   }
   // Object
-  else if (state instanceof Object) {
+  else if (state._stateObject) {
     let obj = {};
     for (let k in state)
-      (obj as any)[k] = bindState(state[k], propId, ignoreProps);
-    return makeStateObject(obj, propId, ignoreProps);
+      (obj as any)[k] = bindState(state[k]);
+    return stateObject(obj) as any;
   }
   // prop
   else
@@ -481,16 +631,16 @@ function initializePropIdentifiers(propId: any, state: any) {
  * Extract state for serialization. 
  * @param state 
  */
-type UnwrapedType<T> = {
-  [K in keyof T]:
+type UnwrapedType<T> =
+  T extends StateTable<infer O> ? { _stateTable: UnwrapedType<O>[] } :
+  T extends StateObject<infer O> ? { _stateObject: UnwrapedType<O> } :
+  T extends StateArray<infer O> ? { _stateArray: UnwrapedType<O>[] } :
+  T;
 
-  T[K] extends Function ? never :
-  T[K] extends StateTable<infer O> ? { isStateTable: boolean, values: O[] } :
-  UnwrapedType<T[K]>
-};
+type StateAny = RootState<any> | StateArrayImpl<any> | StateObjectArrayImpl<any> | StateTableImpl<any> | StateObjectImpl<any>;
 
-export function unwrapState<T extends StateType<any>>(state: T): UnwrapedType<T>;
-export function unwrapState<T extends StateType<any>>(state: T): any {
+export function unwrapState<T>(state: T): UnwrapedType<T>;
+export function unwrapState<T extends StateAny>(state: T): any {
   if (state instanceof StateTableImpl) { // Table
     return { _stateTable: [...state._wrapped.values()].map(v => unwrapState(v)) };
   }
@@ -500,21 +650,21 @@ export function unwrapState<T extends StateType<any>>(state: T): any {
     for (let k in src)
       if (typeof src[k] !== 'function' && !k.startsWith("_"))
         obj[k] = unwrapState(src[k]);
-    return obj;
+    return { _stateObject: obj };
   }
   else if (state instanceof StateArrayImpl) { // Array
-    let stateArray = state as StateArray<any>;
+    let stateArray = state as any as StateArray<any>;
     let arr = [];
     for (let i = 0; i < stateArray.length; i++)
       arr.push(unwrapState(stateArray[i]));
-
+    return { _stateArray: arr };
   }
   return state;
 }
 
 
 type FilterInternalMethods<T> =
-  T extends "_registerChild" | "_ignoreProps" | "_propsId" | "_notifySubscribers" |
+  T extends "_registerChild" | "_propsId" | "_notifySubscribers" |
   "_subscribers" | "_parentListener" | "_wrapped" |
   "_get" | "_propId" | "_parent" ?
   never : T;
@@ -525,17 +675,21 @@ type RemoveInternalMethods<T> = {
 
 type PublicStateType<T> =
   T extends StateObjectImpl<infer O> ?
-  { [K in keyof O]: PublicStateType<StateType<O[K]>> } & RemoveInternalMethods<StateObjectImpl<O>> :
+  { [K in keyof O]: PublicStateType<O[K]> } & RemoveInternalMethods<StateObjectImpl<O>> :
 
   T extends StateTableImpl<infer O> ?
-  Map<IdType<O>, PublicStateType<StateType<O>>> & RemoveInternalMethods<StateTableImpl<O>> :
+  Map<IdType<O>, PublicStateType<O>> & RemoveInternalMethods<StateTableImpl<O>> :
 
   T extends StateArrayImpl<infer O> ?
-  Array<PublicStateType<StateType<O>>> & RemoveInternalMethods<StateArrayImpl<O>>  :
+  Array<PublicStateType<O>> & RemoveInternalMethods<StateArrayImpl<O>> :
+
+  T extends StateObjectArrayImpl<infer O> ?
+  Array<PublicStateType<O>> & RemoveInternalMethods<StateObjectArrayImpl<O>> :
+
+  T extends Function ? never :
   T;
 
 export function createState<T>(state: T, options_?: {
-  ignoreProps?: (propIds: StatePropIdentifiers<RootState<T>>) => PropId[]
   undoIgnore?: (propIds: StatePropIdentifiers<RootState<T>>) => PropId[],
 })
   : RootState<T> {
@@ -543,11 +697,10 @@ export function createState<T>(state: T, options_?: {
   let propsIds = createPropIds<RootState<T>>();
 
   let options = {
-    ignoreProps: options_?.ignoreProps?.(propsIds) || [],
-    undoIgnoreProps: options_?.ignoreProps?.(propsIds) || []
+    undoIgnoreProps: options_?.undoIgnore?.(propsIds) || []
   }
 
-  return makeRootState(state, propsIds, options);
+  return makeRootState(state, propsIds as PropId, options);
 
 }
 

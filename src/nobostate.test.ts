@@ -1,5 +1,19 @@
-import { create, extendWith } from "lodash";
-import { createState, Table, unwrapState } from "./nobostate";
+import { createState, stateArray, StateBaseClass, StateObject, stateObject, stateObjectArray, StateTable, stateTable, Subscriber, unwrapState } from "./nobostate";
+
+function checkListenerCalled(state: any, key: any, fun: () => void) {
+  let called = false;
+  let dispose = state._subscribe(key, () => called = true);
+  fun();
+  expect(called).toBe(true);
+  dispose();
+}
+function subscribeTest(state: any, listener: Function, update: () => void) {
+  let called = false;
+  let dispose = state._subscribe((s: any, prop: any) => { called = true; listener(s, prop); });
+  update();
+  expect(called).toBe(true);
+  dispose();
+}
 
 interface Todo {
   id: string,
@@ -8,7 +22,7 @@ interface Todo {
 };
 
 let state = createState({
-  todos: Table<Todo>()
+  todos: stateTable<Todo>()
   // todos: Array<Todo>()
 });
 
@@ -27,6 +41,25 @@ test('insert/remove', () => {
   state.todos.remove("1");
   expect(state.todos.size).toBe(0);
 
+});
+
+test('update props', () => {
+  let state = createState({
+    str: "",
+    number: 0,
+    arr: [0, 1, 2, 3]
+  });
+
+  checkListenerCalled(state, "str", () => state.str = "abc");
+  expect(state.str).toBe("abc");
+  checkListenerCalled(state, "number", () => state.number = 12);
+  expect(state.number).toBe(12);
+  checkListenerCalled(state, "arr", () => state.arr = [1, 2]);
+  expect(state.arr).toEqual([1, 2]);
+  checkListenerCalled(state, "arr", () => state.arr = [1, 2, 3, 4]);
+  expect(state.arr).toEqual([1, 2, 3, 4]);
+  checkListenerCalled(state, "arr", () => state.arr = [1, 2]);
+  expect(state.arr).toEqual([1, 2]);
 });
 
 test('subscribe on object', () => {
@@ -71,7 +104,7 @@ test('subscribe on table', () => {
 test('subscribe on table insert/remove', () => {
 
   let state = createState({
-    todos: Table<Todo>()
+    todos: stateTable<Todo>()
   });
 
   let called = 0;
@@ -84,7 +117,7 @@ test('subscribe on table insert/remove', () => {
 });
 
 test("table iterator", () => {
-  let state = createState({todos: Table<Todo>()});
+  let state = createState({ todos: stateTable<Todo>() });
 
   state.todos.insert({ id: "1", description: "test", nullable: 23 });
   state.todos.insert({ id: "2", description: "test2", nullable: 24 });
@@ -98,19 +131,21 @@ test("table iterator", () => {
 
 test('unwrap', () => {
   let state = createState({
-    todos: Table<Todo>()
+    todos: stateTable<Todo>()
   });
 
   state.todos.insert({ id: "1", description: "test", nullable: 23 });
 
   expect(unwrapState(state)).toEqual({
-    todos: { _stateTable: [{ id: "1", description: "test", nullable: 23 }] }
-  })
+    _stateObject: {
+      todos: { _stateTable: [{ _stateObject: { id: "1", description: "test", nullable: 23 } }] }
+    }
+  });
 });
 
 test('load', () => {
   let state = createState({
-    todos: Table<Todo>()
+    todos: stateTable<Todo>()
   });
 
   state._load({
@@ -122,17 +157,16 @@ test('load', () => {
   expect(state.todos.assertGet("1").nullable).toBe(23);
 });
 
-function subscribeCheck(state : any, key: any)
-{
+function subscribeCheck(state: any, key: any) {
   let called = false;
   state._subscribe(key, () => called = true);
-  return () => expect(called).toBe(true);  
+  return () => expect(called).toBe(true);
 }
 
 // arrays.
 test('array push', () => {
   let state = createState({
-    todos: [] as Todo[]
+    todos: stateObjectArray<Todo>()
   });
   // console.log(state);
   let checkSubscribeonElement = subscribeCheck(state.todos, 0);
@@ -147,9 +181,9 @@ test('array push', () => {
   checkSubscribeonElement();
 });
 
-test('array set', () => {
+test('array-set', () => {
   let state = createState({
-    todos: [] as Todo[]
+    todos: stateObjectArray<Todo>()
   });
   // console.log(state);
   let checkSubscribeonElement = subscribeCheck(state.todos, 0);
@@ -162,6 +196,7 @@ test('array set', () => {
   expect(state.todos[0].id).toBe("1");
   expect(state.todos[0].description).toBe("test");
   expect(state.todos[0].nullable).toBe(23);
+  expect((state.todos[0] as any)._propId).toBeTruthy();
 
   let checkSubscribeOnElementUpdate = subscribeCheck(state.todos, 0);
   let checkSubscribeOnElementUpdate1 = subscribeCheck(state, "todos");
@@ -173,14 +208,14 @@ test('array set', () => {
 });
 
 test('object update', () => {
-  let state = createState({ obj: {id: "", age : 0} });
+  let state = createState({ obj: stateObject<{ id: string, age: number }>({ id: "", age: 0 }) });
 
-  state.obj._update({id : "1", age: 12});
+  state.obj._update({ id: "1", age: 12 });
 
   expect(state.obj.id).toBe("1");
   expect(state.obj.age).toBe(12);
 
-  state.obj._update({age: 24});
+  state.obj._update({ age: 24 });
   expect(state.obj.id).toBe("1");
   expect(state.obj.age).toBe(24);
 
@@ -194,7 +229,7 @@ test('object update', () => {
 // // undo
 test('undo updateprop', () => {
   let state = createState({
-    todos: Table<Todo>()
+    todos: stateTable<Todo>()
   });
   // console.log(state);
   state.todos.insert({ id: "1", description: "test", nullable: 23 });
@@ -208,7 +243,7 @@ test('undo updateprop', () => {
 
 test('undo insert', () => {
   let state = createState({
-    todos: Table<Todo>()
+    todos: stateTable<Todo>()
   });
   // console.log(state);
   state.todos.insert({ id: "1", description: "test", nullable: 23 });
@@ -222,7 +257,7 @@ test('undo insert', () => {
 
 test('undo-remove', () => {
   let state = createState({
-    todos: Table<Todo>()
+    todos: stateTable<Todo>()
   });
   // console.log(state);
   state.todos.insert({ id: "1", description: "test", nullable: 23 });
@@ -242,7 +277,7 @@ test('undo-remove', () => {
 
 test('undo-push', () => {
   let state = createState({
-    todos: [] as Todo[]
+    todos: stateObjectArray<Todo>()
   });
   // console.log(state);
   state.todos.push({ id: "1", description: "test", nullable: 23 });
@@ -259,7 +294,7 @@ test('undo-push', () => {
 
 test('undo-group-push', () => {
   let state = createState({
-    todos: [] as Todo[]
+    todos: stateObjectArray<Todo>()
   });
   // console.log(state);
 
@@ -289,7 +324,7 @@ test('undo-group-push', () => {
 
 test('undo-group', () => {
   let state = createState({
-    todos: [] as Todo[]
+    todos: stateObjectArray<Todo>()
   });
 
   state._history.group("push", () => {
@@ -318,7 +353,7 @@ test('undo-group', () => {
 
 test('undo-group-merge', () => {
   let state = createState({
-    todos: [] as Todo[]
+    todos: stateObjectArray<Todo>()
   });
 
   state._history.group("push", () => {
@@ -344,7 +379,7 @@ test('undo-group-merge', () => {
     state.todos.push({ id: "1", description: "test", nullable: 26 });
   });
   expect(state._history.size()).toBe(2);
-  
+
   expect(state.todos.length).toBe(5);
   state._history.undo();
   expect(state.todos.length).toBe(4);
@@ -360,7 +395,119 @@ test('undo-group-merge', () => {
 
 test('wrapped methods', () => {
 
-  let state = createState({  todos: Table<Todo>() });
+  let state = createState({ todos: stateTable<Todo>() });
+  // let x = state.todos._use("test");
 
   expect(state.todos.size === 0);
+});
+
+
+test('nullable prop', () => {
+
+  let state = createState({ test: stateObject<{ id: string | null }>({ id: null }) });
+
+  expect(state.test.id).toBe(null);
+  state.test.id = "a";
+  expect(state.test.id).toBe("a");
+});
+
+test('read only objects', () => {
+
+  let state = createState({ test: { id: "" } });
+
+  // let x = state._use("test");
+  state.test = { id: "2" };
+  expect(state.test.id).toBe("2");
+});
+
+function testArrayAccess() {
+  let state = createState({
+    todos: stateTable<{ id: number, arr: number[] }>(),
+  });
+
+  state.todos.assertGet(0).arr = [];
+
+}
+function testUse() {
+  let state = createState({
+    todos: stateTable<Todo>(),
+    arr: stateArray<Todo>(),
+    arr2: stateObjectArray<Todo>(),
+  });
+
+  state._use("todos").assertGet("");
+
+  let a: StateTable<Todo> = state._use("todos");
+  let x: string = state.todos.assertGet("")._use("description");
+  let x2: Todo = state.todos._use("x");
+  let x3: Todo = state.arr._use(1);
+  let x4: Todo = state.arr2._use(1);
+
+  return [a];
+
+}
+
+test('object-assign', () => {
+
+  let state = createState({
+    todo: stateObject<Todo>({id : "1", description : "", nullable: null})
+  });
+
+  let prev = state.todo;
+  state.todo = stateObject<Todo>({id : "1", description : "test", nullable: null});
+  expect(state.todo === prev).toBe(true);
+});
+
+test('subscribers with key', () => {
+
+  let state = createState({
+    table: stateTable<Todo>(),
+    array: stateArray<Todo>(),
+    objectArray: stateObjectArray<Todo>(),
+  });
+
+  subscribeTest(state,
+    (s: any, prop: any) => {
+      expect(prop).toBe("table");
+    },
+    () => state.table.insert({ id: "1", description: "test", nullable: null })
+  );
+
+  subscribeTest(state,
+    (s: any, prop: any) => expect(prop).toBe("table"),
+    () => state.table.assertGet("1").description = "xx"
+  );
+
+  subscribeTest(state.table.assertGet("1"),
+    (s: any, prop: any) => expect(prop).toBe("description"),
+    () => state.table.assertGet("1").description = "xx"
+  );
+
+  subscribeTest(state.array,
+    (s: any, prop: any) => expect(prop).toBe(0),
+    () => state.array.push({ id: "1", description: "test", nullable: null })
+  );
+
+  subscribeTest(state.array,
+    (s: any, prop: any) => expect(prop).toBe(1),
+    () => state.array.push({ id: "1", description: "test", nullable: null })
+  );
+
+
+  subscribeTest(state.objectArray,
+    (s: any, prop: any) => expect(prop).toBe(0),
+    () => state.objectArray.push({ id: "1", description: "test", nullable: null })
+  );
+
+  subscribeTest(state.objectArray,
+    (s: any, prop: any) => expect(prop).toBe(1),
+    () => state.objectArray.push({ id: "1", description: "test", nullable: null })
+  );
+
+  subscribeTest(state.objectArray,
+    (s: any, prop: any) => expect(prop).toBe(1),
+    () => state.objectArray[1].description = "test"
+  );
+
+
 });

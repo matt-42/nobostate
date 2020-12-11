@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { HasId, PropId, StateArrayImpl, StateTableImpl } from "./nobostate";
+import { HasId, PropId, StateArrayImpl, StateObjectArrayImpl, StateTableImpl } from "./nobostate";
 
 export interface HistoryUpdatePropAction {
   action: "updateProp";
@@ -20,7 +20,7 @@ export interface HistoryTableAction {
 export interface HistoryArrayAction {
   action: "push";
   propId: PropId;
-  target: StateArrayImpl<any>;
+  target: StateArrayImpl<any> | StateObjectArrayImpl<any>;
   element: any;
 }
 
@@ -111,7 +111,7 @@ export class NoboHistory {
 
   private undoAction(item: HistoryAction) {
     if (item.action === "updateProp") {
-      // console.log(item.target, item.prop, item.target[item.prop], item.next);
+      console.log(item.target, item.prop, item.target[item.prop], item.next);
       if (!_.isEqual(item.target[item.prop], item.next))
         throw new Error();
       item.target[item.prop] = item.prev;
