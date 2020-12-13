@@ -1,25 +1,25 @@
 import _ from "lodash";
-import { HasId, PropId, StateArrayImpl, StateObjectArrayImpl, StateTableImpl } from "./nobostate";
+import { HasId, PropSpec, StateArrayImpl, StateObjectArrayImpl, StateTableImpl } from "./nobostate";
 
 export interface HistoryUpdatePropAction {
   action: "updateProp";
   target: any;
   prop: string;
-  propId: PropId;
+  propId: PropSpec;
   prev: any;
   next: any;
 }
 
 export interface HistoryTableAction {
   action: "insert" | "remove";
-  propId: PropId;
+  propId: PropSpec;
   target: StateTableImpl<any>;
   element: HasId<any>;
 }
 
 export interface HistoryArrayAction {
   action: "push";
-  propId: PropId;
+  propId: PropSpec;
   target: StateArrayImpl<any> | StateObjectArrayImpl<any>;
   element: any;
 }
@@ -35,32 +35,35 @@ export class NoboHistory {
 
   history: HistoryGroup[] = [];
   currentHistoryIndex = -1;
-  ignorePropIds: PropId[]
   grouping = 0; // more than 0 when grouping.
-  recording = true;
-
-  constructor(ignorePropIds: PropId[]) {
-    this.ignorePropIds = ignorePropIds;
-    // console.log("build history!");
-  }
+  notRecording = 0;
 
   startGroup() { this.grouping++; }
   endGroup() { this.grouping--; if (this.grouping < 0) throw new Error(); }
+
+  ignore(f: () => void) {
+    this.notRecording++;
+    try {
+      f();
+    } finally {
+      this.notRecording--;
+    }
+  }
+
   group(mergeId: string, f: () => void) {
     // if the last group has not the same merge id,
     // create a new group.
     // console.log(this.history.map(i => i.mergeId));
 
-    if (_.last(this.history)?.mergeId !== mergeId)
-    {
+    if (_.last(this.history)?.mergeId !== mergeId) {
       // console.log("new group,", _.last(this.history)?.mergeId, mergeId)
       this.history.push({ mergeId, actions: [] });
       this.currentHistoryIndex++;
       // console.log(_.last(this.history)?.mergeId);
     }
     // else 
-      // console.log("no new group,", _.last(this.history)?.mergeId, mergeId)
-    
+    // console.log("no new group,", _.last(this.history)?.mergeId, mergeId)
+
     // console.log(this.history.map(i => i.mergeId));
 
     this.startGroup();
@@ -74,9 +77,9 @@ export class NoboHistory {
   size() { return this.history.length; }
 
   push(item: HistoryAction) {
-    if (!this.recording) return;
+    if (this.notRecording) return;
     // Ignore some props.
-    if (this.ignorePropIds.find(p => p === item.propId))
+    if (item.propId._undoIgnore)
       return;
 
     // erase future if any.
@@ -111,7 +114,7 @@ export class NoboHistory {
 
   private undoAction(item: HistoryAction) {
     if (item.action === "updateProp") {
-      console.log(item.target, item.prop, item.target[item.prop], item.next);
+      // console.log(item.target, item.prop, item.target[item.prop], item.next);
       if (!_.isEqual(item.target[item.prop], item.next))
         throw new Error();
       item.target[item.prop] = item.prev;
@@ -144,29 +147,22 @@ export class NoboHistory {
   }
 
   undo() {
-    this.recording = false;
-    try {
-
+    this.ignore(() => {
       let group = this.history[this.currentHistoryIndex];
       if (!group) return;
       for (let i = group.actions.length - 1; i >= 0; i--)
         this.undoAction(group.actions[i]);
       this.currentHistoryIndex -= 1;
-    } finally {
-      this.recording = true;
-    }
+    })
   }
 
   redo() {
-    this.recording = false;
-    try {
+    this.ignore(() => {
       let group = this.history[this.currentHistoryIndex + 1];
       if (!group) return;
       group.actions.forEach(item => this.redoAction(item));
       this.currentHistoryIndex += 1;
-    } finally {
-      this.recording = true;
-    }
+    });
   }
 
   goto(index: number) {

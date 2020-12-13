@@ -2,8 +2,6 @@
 //   NoBoS
 //   nestr
 //   
-/* eslint-disable */
-
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { HistoryArrayAction, HistoryTableAction, HistoryUpdatePropAction, NoboHistory } from "./history";
@@ -69,6 +67,7 @@ export type Subscriber<T> = (value: T, key: StateKeyType<T>) => void
 type SubscriberArray<T> = Subscriber<T>[];
 
 type StateKeyType<T> =
+  T extends StateForeignKey<any> ? "id" :
   T extends StateTableImpl<any> ? string :
   T extends StateObjectImpl<infer O> ? ObjectPropsKeys<O> :
   // T extends StateArrayImpl<any> ? number : 
@@ -85,12 +84,14 @@ type ObjectPropsKeys<T> = {
 
 type StateBaseExactType<T> =
   T extends StateTableImpl<infer O> ? StateTable<O> :
-  T extends StateObject<infer O> ? StateObject<O> :
+  T extends StateObjectImpl<infer O> ? StateObject<O> :
+  T extends StateArrayImpl<infer O> ? StateArray<O> :
+  T extends StateObjectArrayImpl<infer O> ? StateObjectArray<O> :
   T;
 
 export class StateBaseClass<T> {
   _parent: any | null = null;
-  _propId: PropId = null as any;
+  _propId: PropSpec = null as any;
 
   _subscribers: { [K in StateKeyType<T>]?: SubscriberArray<T> } = {};
   _thisSubscribers: SubscriberArray<T> = [];
@@ -103,6 +104,12 @@ export class StateBaseClass<T> {
     return it as any as { _history: NoboHistory };
   }
 
+  _rootStateAccess(path: string[]) {
+    let elt: any = this._getRootState();
+    for (let key of path)
+      elt = elt._get(key);
+    return elt;
+  }
 
   _subscribeImpl(arg1: any, arg2?: any): () => void {
     if (arg2 === undefined) {
@@ -162,6 +169,36 @@ export class StateBaseClass<T> {
     return value;
   }
 }
+
+function copyStateArray(dst_: StateArrayImpl<any> | StateObjectArrayImpl<any>, src: any) {
+  const isPrimitive = (o: any) => !(o instanceof StateObjectImpl ||
+    o instanceof StateArrayImpl ||
+    o instanceof StateTableImpl);
+
+  let dst = dst_ as StateArray<any>;
+
+  // Resize dst array if too large.
+  while (dst._wrapped.length > src.length)
+    dst.pop();
+
+  // Update existing elements of the array.
+  for (let i = 0; i < dst.length; i++) {
+    // if (isPrimitive(dst[i])) {
+    //   dst[i] = src[i];
+    //   dst._notifySubscribers(i, dst[i]);
+    // }
+    // else
+    updateState(dst, i, src[i]);
+  }
+  // Insert new elements.
+  for (let i = dst.length; i < src.length; i++) {
+    dst.push(src[i]);
+  }
+  // Check that arrayToUpdate and src have the same size.    
+  if (dst.length != src.length)
+    throw new Error();
+}
+
 /**
  * Update prop \prop of state dst with value src.
  * @param dst 
@@ -177,27 +214,28 @@ function updateState(dst: any, prop: any, src: any) {
 
   let toUpdate = dst[prop];
   if (toUpdate instanceof StateArrayImpl || toUpdate instanceof StateObjectArrayImpl) {
-    let arrayToUpdate = toUpdate as any as StateArray<any>;
-    // Resize dst array if too large.
-    while (arrayToUpdate._wrapped.length > src.length)
-      arrayToUpdate.pop();
+    copyStateArray(toUpdate, src);
+    // let arrayToUpdate = toUpdate as any as StateArray<any>;
+    // // Resize dst array if too large.
+    // while (arrayToUpdate._wrapped.length > src.length)
+    //   arrayToUpdate.pop();
 
-    // Update existing elements of the array.
-    for (let i = 0; i < arrayToUpdate.length; i++) {
-      if (isPrimitive(arrayToUpdate[i])) {
-        arrayToUpdate[i] = src[i];
-        toUpdate._notifySubscribers(i, arrayToUpdate[i]);
-      }
-      else
-        updateState(arrayToUpdate, i, src[i]);
-    }
-    // Insert new elements.
-    for (let i = arrayToUpdate.length; i < src.length; i++) {
-      arrayToUpdate.push(src[i]);
-    }
-    // Check that arrayToUpdate and src have the same size.    
-    if (arrayToUpdate.length != src.length)
-      throw new Error();
+    // // Update existing elements of the array.
+    // for (let i = 0; i < arrayToUpdate.length; i++) {
+    //   if (isPrimitive(arrayToUpdate[i])) {
+    //     arrayToUpdate[i] = src[i];
+    //     toUpdate._notifySubscribers(i, arrayToUpdate[i]);
+    //   }
+    //   else
+    //     updateState(arrayToUpdate, i, src[i]);
+    // }
+    // // Insert new elements.
+    // for (let i = arrayToUpdate.length; i < src.length; i++) {
+    //   arrayToUpdate.push(src[i]);
+    // }
+    // // Check that arrayToUpdate and src have the same size.    
+    // if (arrayToUpdate.length != src.length)
+    //   throw new Error();
   }
   else if (toUpdate instanceof StateObjectImpl) {
     let obj = toUpdate as any;
@@ -234,6 +272,7 @@ function updateState(dst: any, prop: any, src: any) {
       // console.log(dst._getRootState());
       let history = dst._getRootState()._history;
       // console.log(history.push);
+      // console.log(dst._propId);
       history.push({
         action: "updateProp",
         target: dst,
@@ -250,7 +289,7 @@ function updateState(dst: any, prop: any, src: any) {
 export class StateObjectArrayImpl<T> extends StateBaseClass<StateObjectArrayImpl<T>>  {
 
   _isObjectArray = true; // Just to differenciate with StateArrayImpl
-  _wrapped = [] as T[];
+  _wrapped = [] as StateObject<T>[];
 
   push(...elements: T[]) {
     elements.forEach(elt => {
@@ -271,6 +310,12 @@ export class StateObjectArrayImpl<T> extends StateBaseClass<StateObjectArrayImpl
     });
 
   }
+  clear() {
+    this._wrapped.length = 0;
+    this._parentListener?.();
+    this._thisSubscribers.map(s => s(this, -1));
+  }
+  copy(other: T[]) { copyStateArray(this, other); }
 
   _get(i: number) {
     return this._wrapped[i as number];
@@ -309,6 +354,19 @@ export class StateArrayImpl<T> extends StateBaseClass<StateArrayImpl<T>>
     });
 
   }
+  remove(index: number) {
+    this._wrapped.splice(index, 1);
+    for (let i = index; i < this._wrapped.length; i++)
+      this._notifySubscribers(i, this._wrapped[i]);
+
+  }
+
+  clear() {
+    this._wrapped.length = 0;
+    this._parentListener?.();
+    this._thisSubscribers.map(s => s(this, -1));
+  }
+  copy(other: T[]) { copyStateArray(this, other); }
 
   _get(i: number) {
     return this._wrapped[i as number];
@@ -352,6 +410,7 @@ export class StateTableImpl<O extends HasId<any>> extends StateBaseClass<StateTa
   map<R>(f: (o: StateObject<O>) => R) { return [...this._wrapped.values()].map(f); }
   flatMap<R>(f: (o: StateObject<O>) => R) { return [...this._wrapped.values()].flatMap(f); }
   forEach(f: (o: StateObject<O>) => void) { return [...this._wrapped.values()].forEach(f); }
+  find(predicate: (o: StateObject<O>) => boolean) { return [...this._wrapped.values()].find(predicate); }
 
   insert(value: O) {
     let elt: StateObject<O> = value instanceof StateBaseClass ? value as any : stateObject(value);
@@ -368,6 +427,12 @@ export class StateTableImpl<O extends HasId<any>> extends StateBaseClass<StateTa
       target: this,
       element: elt
     } as HistoryTableAction)
+  }
+
+  set(value: O) {
+    if (!this._wrapped.has(value.id))
+      return this.insert(value);
+    else this._set(value.id, value);
   }
 
   assertGet(id: IdType<O>) {
@@ -390,6 +455,32 @@ export class StateTableImpl<O extends HasId<any>> extends StateBaseClass<StateTa
   remove(id: IdType<O>) {
     let elt = this._wrapped.get(id);
     this._wrapped.delete(id);
+
+    for (let c of this._propId._foreignKeys) {
+      let { srcProp, mode } = c;
+      let tablePath = [...srcProp._path];
+      let key = tablePath.pop();
+
+      if (!key) {
+        throw new Error(`Foreign key path is empty`);
+      }
+      let table = this._rootStateAccess(tablePath) as StateTable<any>;
+      if (!(table instanceof StateTableImpl))
+        throw new Error(`Foreign key ref ${tablePath.join(".")} is not a table`);
+
+      let toRemove: any[] = [];
+      table.forEach(elt => {
+        let ref = elt[key as string] as StateForeignKey<any>; 
+        if (ref.getId() === id) {
+          if (mode === "cascade")
+            toRemove.push(elt.id);
+          else if (mode === "set-null")
+            ref.set(null);
+        }
+      });
+      for (let id of toRemove) table.remove(id);
+    }
+
     this._notifySubscribers(id, null);
     this._getRootState()._history.push({
       action: "remove",
@@ -397,6 +488,10 @@ export class StateTableImpl<O extends HasId<any>> extends StateBaseClass<StateTa
       target: this,
       element: elt
     } as HistoryTableAction)
+  }
+
+  _useMapSelector<R>(mapSelector: (o: O) => R) {
+    return this._useSelector(table => [...table.values()].map(mapSelector));
   }
 }
 
@@ -478,24 +573,26 @@ type ReadOnly<T> =
   } : T;
 
 type ReadOnlyNonStateTypes<T> =
-  T extends StateObject<infer O> ? StateObject<{ [P in keyof O]: ReadOnlyNonStateTypes<O[P]>; }> :
-  T extends StateTable<infer O> ? StateTable<{ [P in keyof O]: ReadOnlyNonStateTypes<O[P]>; }> :
-  T extends StateArray<infer O> ? StateArray<ReadOnlyNonStateTypes<O>> :
-  T extends StateObjectArray<infer O> ? StateObjectArray<{ [P in keyof O]: ReadOnlyNonStateTypes<O[P]>; }> :
+  T extends StateForeignKey<infer O> ? StateForeignKey<O> :
+  T extends StateObject<infer O> ? StateObject<O> :
+  T extends StateTable<infer O> ? StateTable<O> :
+  T extends StateArray<infer O> ? StateArray<O> :
+  T extends StateObjectArray<infer O> ? StateObjectArray<O> :
   ReadOnly<T>;
 
+// type RootState<T> = PublicStateType<ReadOnlyNonStateTypes<StateObject<T>>> & { _load: (data: any) => void, _history: NoboHistory };
+type RootState<T> = PublicStateType<StateObject<T>> & { _load: (data: any) => void, _history: NoboHistory };
+// type RootState<T> = StateObject<T> & { _load: (data: any) => void, _history: NoboHistory };
 
-type RootState<T> = PublicStateType<ReadOnlyNonStateTypes<StateObject<T>>> & { _load: (data: any) => void, _history: NoboHistory };
 
-
-function makeRootState<T>(state: T, propId: PropId, options: { undoIgnoreProps: PropId[] }) {
+function makeRootState<T>(state: T, propId: PropSpec) {
 
   let obj = {} as any;
   for (let k in state)
     (obj as any)[k] = state[k];
   let wrapped = new StateObjectImpl<T>(obj);
 
-  propagatePropIds(wrapped, propId as PropId);
+  propagatePropIds(wrapped, propId as PropSpec);
 
   let proxy = createProxy<RootState<T>>(_.assign(wrapped, {
 
@@ -507,7 +604,7 @@ function makeRootState<T>(state: T, propId: PropId, options: { undoIgnoreProps: 
     },
 
     // State action history.
-    _history: new NoboHistory(options.undoIgnoreProps)
+    _history: new NoboHistory()
 
   }));
 
@@ -517,7 +614,7 @@ function makeRootState<T>(state: T, propId: PropId, options: { undoIgnoreProps: 
 export type StateArray<T> = Array<T> & StateArrayImpl<T>;
 export type StateObjectArray<T> = Array<T> & StateObjectArrayImpl<T>;
 export type StateTable<T extends HasId<any>> = Map<IdType<T>, T> & StateTableImpl<T>;
-export type StateObject<T> = T & StateObjectImpl<T>;
+export type StateObject<T> = { [K in keyof T]: ReadOnlyNonStateTypes<T[K]>; } & StateObjectImpl<T>;
 
 type xxx = StateObject<number | null>;
 // StateObject<T | null> = T & StateObjectImpl<T>;
@@ -527,27 +624,113 @@ export const stateObjectArray = <T>() => stateFactory<StateObjectArray<T>>(State
 export const stateObject = <T>(data: T) => stateFactory<StateObject<T>>(StateObjectImpl, data);
 export const stateTable = <T extends HasId<any>>() => stateFactory<StateTable<T>>(StateTableImpl);
 
-export type PropId = { [key: string]: PropId } & { _propId: number };
+export function stateForeignKey<T extends HasId<any>>(id: IdType<T> | null) { return new StateForeignKey<T>(id); }
+export class StateForeignKey<T extends HasId<any>> extends StateBaseClass<StateForeignKey<T>> {
+  _isForeignKey = true;
+  _id: IdType<T> | null = null;
+
+  constructor(id: IdType<T> | null) {
+    super();
+    this._id = id;
+  }
+
+  getId() { return this._id; }
+  get() {
+    let specs = this._propId as ForeignKeySpec;
+    if (!specs || !specs._ref) throw new Error();
+
+    // state.table1.object1.subtable1.ref1
+    // state.table1.object1.subtable2.ref2
+    // state.table1.object1.subtable1.ref1 = state.table1.object1.subtable2
+
+    // access the referenced element.
+    return this._rootStateAccess(specs._ref._path).get(this._id) as T;
+  }
+
+  set(id: IdType<T> | null) {
+    let prev = this._id;
+    this._id = id;
+    this._notifySubscribers("id" as any, id);
+
+    let history = this._getRootState()._history;
+    history.push({
+      action: "updateProp",
+      target: this,
+      prop: "id",
+      propId: (this._propId as any)["id"],
+      prev,
+      next: id
+    } as HistoryUpdatePropAction);
+
+  }
+}
+
+// export type NonLeafPropSpec = { [key: string]: PropSpec };
+
+export type PropSpec = {
+  _path: string[],
+  _propId: number,
+  _undoIgnore?: boolean,
+  _foreignKeys: { mode: "cascade" | "set-null", srcProp: PropSpec }[];
+};
+export type ForeignKeySpec = PropSpec & {
+  _ref?: PropSpec,
+};
+
+// export type PropSpec = LeafPropSpec;
 
 type StatePropIdentifiers<T> =
-  T extends null ? PropId :
-  T extends string ? PropId :
-  T extends number ? PropId :
-  T extends StateObject<infer V> ? { [K in keyof V]: StatePropIdentifiers<V[K]> } :
-  T extends StateArray<infer V> ? StatePropIdentifiers<V> :
-  T extends StateObjectArray<infer V> ? StatePropIdentifiers<V> :
-  T extends StateTable<infer V> ? StatePropIdentifiers<V> :
-  PropId;
+  T extends StateForeignKey<any> ? ForeignKeySpec :
+  T extends StateObject<infer V> ? PropSpec & { [K in keyof V]: StatePropIdentifiers<V[K]> } :
+  T extends StateArray<any> ? PropSpec :
+  T extends StateObjectArray<infer V> ? StatePropIdentifiers<StateObject<V>> :
+  T extends StateTable<infer V> ? StatePropIdentifiers<StateObject<V>> :
+  PropSpec;
 
-function createPropIds<T>(): StatePropIdentifiers<T> {
+
+
+// export class StateForeignKey2<T> extends StateBaseClass<any> {
+//   _isForeignKey = true;
+//   _specs: ForeignKeySpec | null = null;
+//   _id: IdType<T> | null = null;
+
+
+// }
+// type Test = {id : string, xx: number}
+// type S = StatePropIdentifiers<StateObject<{id : string, 
+//   xxxx: StateForeignKey<Test>
+//   // xxxx: StateForeignKey2<Test>
+//   // xxxx: Test
+// }>>
+
+// // type S = StatePropIdentifiers<StateForeignKey2<Test>>
+// // type S = StatePropIdentifiers<StateObject<{xxxx : StateForeignKey2<Test> }>>
+
+// let x = {} as S;
+// x.xxxx;
+
+function createPropIds<T>(options_?: { path: string[], getNextId: () => number }): StatePropIdentifiers<T> {
   let cpt = 0;
-  return new Proxy({ _path: "", _propId: cpt++ } as any, {
-    get: (target, prop, receiver) => {
+
+  let options = options_ || {
+    path: [], getNextId: () => { return cpt++; }
+  }
+
+  let target: PropSpec = {
+    _path: options.path,
+    _propId: options.getNextId(),
+    _undoIgnore: false,
+    _foreignKeys: []
+  };
+
+  return new Proxy(target, {
+    get: (target: any, prop, receiver) => {
       let sprop = prop as string;
-      if (target[sprop])
+      if (target[sprop] !== undefined)
         return target[sprop];
       else {
-        target[sprop] = { _propId: cpt++, _path: target._path + (prop as string) };
+        // console.log("create prop", sprop);
+        target[sprop] = createPropIds({ path: [...options.path, sprop], getNextId: options.getNextId });
         return target[sprop];
       }
     }
@@ -555,7 +738,7 @@ function createPropIds<T>(): StatePropIdentifiers<T> {
 }
 
 
-function propagatePropIds<T>(state: T, propId: PropId): void {
+function propagatePropIds<T>(state: T, propId: PropSpec): void {
 
   if (state instanceof StateBaseClass)
     state._propId = propId;
@@ -566,7 +749,7 @@ function propagatePropIds<T>(state: T, propId: PropId): void {
   }
   else if (state instanceof StateObjectImpl) {
     for (let k in state._wrapped)
-      propagatePropIds(state._wrapped[k], propId[k]);
+      propagatePropIds(state._wrapped[k], (propId as any)[k]);
   }
   else if (state instanceof StateArrayImpl || state instanceof StateObjectArrayImpl) {
     for (let k of state as any as StateArray<any>)
@@ -689,33 +872,29 @@ type PublicStateType<T> =
   T extends Function ? never :
   T;
 
-export function createState<T>(state: T, options_?: {
-  undoIgnore?: (propIds: StatePropIdentifiers<RootState<T>>) => PropId[],
+
+class SpecsBuilder {
+
+  foreignKey(srcProp : PropSpec, dstTable : PropSpec, mode : "set-null" | "cascade" = "set-null") {
+
+    dstTable._foreignKeys.push({ mode, srcProp });
+    (srcProp as ForeignKeySpec)._ref = dstTable;
+  }
+
+  undoIgnore(prop: PropSpec) {
+    prop._undoIgnore = true;
+  }
+}
+
+export function createState<T>(state: T, options?: {
+  setSpecs?: (propIds: StatePropIdentifiers<StateObject<T>>, specs: SpecsBuilder) => void,
 })
   : RootState<T> {
 
-  let propsIds = createPropIds<RootState<T>>();
+  let propsIds = createPropIds<StateObject<T>>();
 
-  let options = {
-    undoIgnoreProps: options_?.undoIgnore?.(propsIds) || []
-  }
+  options?.setSpecs?.(propsIds, new SpecsBuilder());
 
-  return makeRootState(state, propsIds as PropId, options);
+  return makeRootState(state, propsIds as PropSpec);
 
 }
-
-// interface Todo {
-//   id: string,
-//   description: string
-// };
-// let obj = createState({
-//   todos: new StateTable<Todo>()
-// });
-
-// obj.todos._assertGet("i")._use("id")
-
-// let propsIds = createPropIds(obj);
-// let state = bindState(obj, propsIds, []);
-// let state2 = _.assignIn(state, {
-//   _revive: makeReviveState(propsIds, [])
-// })

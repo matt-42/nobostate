@@ -1,4 +1,4 @@
-import { createState, stateArray, StateBaseClass, StateObject, stateObject, stateObjectArray, StateTable, stateTable, Subscriber, unwrapState } from "./nobostate";
+import { createState, stateArray, StateBaseClass, stateForeignKey, StateForeignKey, StateObject, stateObject, stateObjectArray, StateTable, stateTable, Subscriber, unwrapState } from "./nobostate";
 
 function checkListenerCalled(state: any, key: any, fun: () => void) {
   let called = false;
@@ -509,5 +509,64 @@ test('subscribers with key', () => {
     () => state.objectArray[1].description = "test"
   );
 
+});
+
+function propId() {
+
+  let state = createState({
+    table: stateTable<Todo>(),
+    array: stateArray<Todo>(),
+    objectArray: stateObjectArray<Todo>(),
+  }, {
+    setSpecs: props => { props.objectArray.description._undoIgnore = true; }
+  });
+
+}
+
+
+type Test = {id: string, text: string};
+test('foreignkey-set-null', () => {
+  let state = createState({
+    table1: stateTable<Test>(),
+    table2: stateTable<{id: string, ref: StateForeignKey<Test>}>(),
+  },
+  {
+    setSpecs: (props, specs) => {
+      specs.foreignKey(props.table2.ref, props.table1, "set-null");
+    } 
+  });
+
+  state.table1.insert({id: "1", text:"xxx"});
+  state.table2.insert({id: "1", ref: stateForeignKey<Test>("1")});
+
+  expect(state.table2.assertGet("1").ref.getId()).toBe("1");
+  expect(state.table2.assertGet("1").ref.get().text).toBe("xxx");
+
+  state.table1.remove("1");
+  expect(state.table2.assertGet("1").ref.getId()).toBe(null);
+
+});
+
+test('foreign-key-cascade', () => {
+  let state = createState({
+    table1: stateTable<Test>(),
+    table2: stateTable<{id: string, ref: StateForeignKey<Test>}>(),
+  },
+  {
+    setSpecs: (props, specs) => {
+      specs.foreignKey(props.table2.ref, props.table1, "cascade");
+    } 
+  });
+
+  state.table1.insert({id: "1", text:"xxx"});
+  state.table2.insert({id: "1", ref: stateForeignKey<Test>("1")});
+  state.table2.insert({id: "2", ref: stateForeignKey<Test>("1")});
+  state.table2.insert({id: "3", ref: stateForeignKey<Test>("2")});
+
+  expect(state.table2.assertGet("1").ref.getId()).toBe("1");
+  expect(state.table2.assertGet("1").ref.get().text).toBe("xxx");
+
+  state.table1.remove("1");
+  expect(state.table2.size).toBe(1);
 
 });
