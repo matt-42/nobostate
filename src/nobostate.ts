@@ -371,6 +371,25 @@ export class StateTableImpl<O extends HasId<any>> extends StateBaseClass<StateTa
     } as HistoryTableAction)
   }
 
+  clone(id: IdType<O>) {
+
+    let obj = this.assertGet(id);
+
+    // find a new unique id.
+    let toIdType = typeof obj.id === "number" ? (i: number) => i : (i: number) => i.toString();
+    let i = this._wrapped.size;
+    while (this._wrapped.has(toIdType(i) as IdType<O>))
+      i++;
+    let newId = toIdType(i);
+
+    let clone: any = unwrapState(obj);
+    clone._stateObject.id = newId;
+    // console.log(clone);
+    let bind = bindState(clone) as StateObject<O>;
+    this.insert(bind as O);
+    return bind as StateObject<O>;
+  }
+
   set(value: O) {
     if (!this._wrapped.has(value.id))
       return this.insert(value);
@@ -733,20 +752,20 @@ function bindState(state: any): any {
   // Array
   else if (state._stateArray) {
     let arr = stateArray();
-    arr.push(...state);
+    arr.push(...state._stateArray);
     return arr as any;
   }
   // Object Array.
   else if (state._stateObjectArray) {
     let arr = stateObjectArray();
-    arr.push(...state);
+    arr.push(...state._stateObjectArray);
     return arr as any;
   }
   // Object
   else if (state._stateObject) {
     let obj = {};
-    for (let k in state)
-      (obj as any)[k] = bindState(state[k]);
+    for (let k in state._stateObject)
+      (obj as any)[k] = bindState(state._stateObject[k]);
     return stateObject(obj) as any;
   }
   // prop

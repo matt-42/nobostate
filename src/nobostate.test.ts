@@ -596,3 +596,17 @@ test('foreign-key-custom-trigger', () => {
   expect(state.table2.get("1").ref.getId()).toBe("removed");
 
 });
+
+
+test('table-clone', () => {
+  let state = createState({
+    table1: stateTable<Test>(),
+  });
+
+  state.table1.insert({ id: "1", text: "xxx" });
+  let obj = state.table1.clone("1");
+  // console.log(obj);
+  expect(obj.id !== "1").toBe(true);
+  expect(obj.text).toBe("xxx");
+  expect(state.table1.has(obj.id)).toBeTruthy();
+});
