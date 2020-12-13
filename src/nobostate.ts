@@ -1,46 +1,7 @@
-// names:
-//   NoBoS
-//   nestr
-//   
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { HistoryArrayAction, HistoryTableAction, HistoryUpdatePropAction, NoboHistory } from "./history";
 
-
-// Candidate to replace redux.
-
-// problems of redux:
-//  lots of boilerplate code.
-//  complex dispatch/thunk/getstate()...
-//  performance: need to create a new array/maps everytime we update anything inside.
-//  invalide states
-
-
-// solution, use a mutable state with observable properties
-
-
-// update the state.
-// state.trajectories[id].name.set("newName");
-// state.trajectories.insert({ ....});
-// state.trajectories.remove(id);
-
-// access the state.
-// state.trajectories[id].name.get();
-
-// react component re-render when something change in the state.
-// let name = state.trajectories[id].name.use();
-
-
-// undo: 
-//   diff based: for each update, keep (prev, next) values.
-//     -> we can ignore certains actions from the undo history.
-//   how do we specify which action we ignore ?
-//   group consecutive updates on the same property.
-//   
-
-// transactions?
-
-// declare the state:
 
 function useNoboState(state: any, prop?: any) {
 
@@ -182,14 +143,9 @@ function copyStateArray(dst_: StateArrayImpl<any> | StateObjectArrayImpl<any>, s
     dst.pop();
 
   // Update existing elements of the array.
-  for (let i = 0; i < dst.length; i++) {
-    // if (isPrimitive(dst[i])) {
-    //   dst[i] = src[i];
-    //   dst._notifySubscribers(i, dst[i]);
-    // }
-    // else
+  for (let i = 0; i < dst.length; i++)
     updateState(dst, i, src[i]);
-  }
+
   // Insert new elements.
   for (let i = dst.length; i < src.length; i++) {
     dst.push(src[i]);
@@ -215,27 +171,6 @@ function updateState(dst: any, prop: any, src: any) {
   let toUpdate = dst[prop];
   if (toUpdate instanceof StateArrayImpl || toUpdate instanceof StateObjectArrayImpl) {
     copyStateArray(toUpdate, src);
-    // let arrayToUpdate = toUpdate as any as StateArray<any>;
-    // // Resize dst array if too large.
-    // while (arrayToUpdate._wrapped.length > src.length)
-    //   arrayToUpdate.pop();
-
-    // // Update existing elements of the array.
-    // for (let i = 0; i < arrayToUpdate.length; i++) {
-    //   if (isPrimitive(arrayToUpdate[i])) {
-    //     arrayToUpdate[i] = src[i];
-    //     toUpdate._notifySubscribers(i, arrayToUpdate[i]);
-    //   }
-    //   else
-    //     updateState(arrayToUpdate, i, src[i]);
-    // }
-    // // Insert new elements.
-    // for (let i = arrayToUpdate.length; i < src.length; i++) {
-    //   arrayToUpdate.push(src[i]);
-    // }
-    // // Check that arrayToUpdate and src have the same size.    
-    // if (arrayToUpdate.length != src.length)
-    //   throw new Error();
   }
   else if (toUpdate instanceof StateObjectImpl) {
     let obj = toUpdate as any;
@@ -310,6 +245,13 @@ export class StateObjectArrayImpl<T> extends StateBaseClass<StateObjectArrayImpl
     });
 
   }
+  remove(index: number) {
+    this._wrapped.splice(index, 1);
+    for (let i = index; i < this._wrapped.length; i++)
+      this._notifySubscribers(i, this._wrapped[i]);
+
+  }
+
   clear() {
     this._wrapped.length = 0;
     this._parentListener?.();
@@ -453,29 +395,32 @@ export class StateTableImpl<O extends HasId<any>> extends StateBaseClass<StateTa
   }
 
   remove(id: IdType<O>) {
-    let elt = this._wrapped.get(id);
+    let eltToDelete = this._wrapped.get(id);
     this._wrapped.delete(id);
 
-    for (let c of this._propId._foreignKeys) {
-      let { srcProp, mode } = c;
+    // Manage foreign keys.
+    for (let c of (this._propId as TablePropSpec<any>)._foreignKeys) {
+      let { srcProp, trigger } = c;
       let tablePath = [...srcProp._path];
       let key = tablePath.pop();
 
       if (!key) {
         throw new Error(`Foreign key path is empty`);
       }
-      let table = this._rootStateAccess(tablePath) as StateTable<any>;
-      if (!(table instanceof StateTableImpl))
-        throw new Error(`Foreign key ref ${tablePath.join(".")} is not a table`);
+      let table = this._rootStateAccess(tablePath) as StateTable<any> | StateObjectArray<any>;
+      if (!(table instanceof StateTableImpl || table instanceof StateObjectArrayImpl))
+        throw new Error(`Foreign key ref ${tablePath.join(".")} is not a table or an array`);
 
       let toRemove: any[] = [];
-      table.forEach(elt => {
-        let ref = elt[key as string] as StateForeignKey<any>; 
+      table.forEach((elt: any) => {
+        let ref = elt[key as string] as StateForeignKey<any>;
         if (ref.getId() === id) {
-          if (mode === "cascade")
+          if (trigger === "cascade")
             toRemove.push(elt.id);
-          else if (mode === "set-null")
+          else if (trigger === "set-null")
             ref.set(null);
+          else
+            trigger(elt, eltToDelete);
         }
       });
       for (let id of toRemove) table.remove(id);
@@ -486,7 +431,7 @@ export class StateTableImpl<O extends HasId<any>> extends StateBaseClass<StateTa
       action: "remove",
       propId: this._propId,
       target: this,
-      element: elt
+      element: eltToDelete
     } as HistoryTableAction)
   }
 
@@ -636,7 +581,7 @@ export class StateForeignKey<T extends HasId<any>> extends StateBaseClass<StateF
 
   getId() { return this._id; }
   get() {
-    let specs = this._propId as ForeignKeySpec;
+    let specs = this._propId as ForeignKeySpec<T>;
     if (!specs || !specs._ref) throw new Error();
 
     // state.table1.object1.subtable1.ref1
@@ -671,20 +616,26 @@ export type PropSpec = {
   _path: string[],
   _propId: number,
   _undoIgnore?: boolean,
-  _foreignKeys: { mode: "cascade" | "set-null", srcProp: PropSpec }[];
 };
-export type ForeignKeySpec = PropSpec & {
+export type ForeignKeySpec<T> = PropSpec & {
   _ref?: PropSpec,
+};
+
+type TablePropSpec<T> = PropSpec & {
+  _foreignKeys: {
+    trigger: "cascade" | "set-null" | ((target: any, removeElement: any) => void),
+    srcProp: PropSpec
+  }[];
 };
 
 // export type PropSpec = LeafPropSpec;
 
 type StatePropIdentifiers<T> =
-  T extends StateForeignKey<any> ? ForeignKeySpec :
+  T extends StateForeignKey<infer V> ? ForeignKeySpec<V> :
   T extends StateObject<infer V> ? PropSpec & { [K in keyof V]: StatePropIdentifiers<V[K]> } :
   T extends StateArray<any> ? PropSpec :
   T extends StateObjectArray<infer V> ? StatePropIdentifiers<StateObject<V>> :
-  T extends StateTable<infer V> ? StatePropIdentifiers<StateObject<V>> :
+  T extends StateTable<infer V> ? TablePropSpec<V> & StatePropIdentifiers<StateObject<V>> :
   PropSpec;
 
 
@@ -716,7 +667,7 @@ function createPropIds<T>(options_?: { path: string[], getNextId: () => number }
     path: [], getNextId: () => { return cpt++; }
   }
 
-  let target: PropSpec = {
+  let target: TablePropSpec<any> = {
     _path: options.path,
     _propId: options.getNextId(),
     _undoIgnore: false,
@@ -875,10 +826,11 @@ type PublicStateType<T> =
 
 class SpecsBuilder {
 
-  foreignKey(srcProp : PropSpec, dstTable : PropSpec, mode : "set-null" | "cascade" = "set-null") {
-
-    dstTable._foreignKeys.push({ mode, srcProp });
-    (srcProp as ForeignKeySpec)._ref = dstTable;
+  foreignKey<S, T>(srcProp: ForeignKeySpec<S>, dstTable: TablePropSpec<T>,
+    mode: "set-null" | "cascade" | ((elt: S, removed: T) => void) = "set-null"
+  ) {
+    dstTable._foreignKeys.push({ trigger: mode, srcProp: srcProp as any });
+    srcProp._ref = dstTable as any;
   }
 
   undoIgnore(prop: PropSpec) {
