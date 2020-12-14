@@ -1,4 +1,4 @@
-import { createState, stateArray, StateBaseClass, stateForeignKey, StateForeignKey, StateObject, stateObject, stateObjectArray, StateTable, stateTable, Subscriber, unwrapState } from "./nobostate";
+import { createState, stateArray, StateBaseClass, StateForeignKey, stateForeignKey, stateObject, stateObjectArray, stateTable, StateTable, unwrapState } from "./nobostate";
 
 function checkListenerCalled(state: any, key: any, fun: () => void) {
   let called = false;
@@ -28,6 +28,7 @@ let state = createState({
 
 test('insert/remove', () => {
   // console.log(state);
+  // state.t
   expect(state.todos.size).toBe(0);
   state.todos.insert({ id: "1", description: "test", nullable: 23 });
   expect(state.todos.size).toBe(1);
@@ -196,7 +197,7 @@ test('array-set', () => {
   expect(state.todos[0].id).toBe("1");
   expect(state.todos[0].description).toBe("test");
   expect(state.todos[0].nullable).toBe(23);
-  expect((state.todos[0] as any)._propId).toBeTruthy();
+  expect((state.todos[0])._props).toBeTruthy();
 
   let checkSubscribeOnElementUpdate = subscribeCheck(state.todos, 0);
   let checkSubscribeOnElementUpdate1 = subscribeCheck(state, "todos");
@@ -514,11 +515,16 @@ test('subscribers with key', () => {
 function propId() {
 
   let state = createState({
+    // test: 0,
     table: stateTable<Todo>(),
     array: stateArray<Todo>(),
     objectArray: stateObjectArray<Todo>(),
   }, {
-    setSpecs: props => { props.objectArray.description._undoIgnore = true; }
+    setSpecs: props => {
+      props.table.description._path;
+      props.array._path;
+      props.objectArray.description._undoIgnore = true;
+    }
   });
 
 }
@@ -580,8 +586,7 @@ test('foreign-key-custom-trigger', () => {
     {
       setSpecs: (props, specs) => {
         specs.foreignKey(props.table2.ref, props.table1,
-          (dst: { id: string, ref: StateForeignKey<Test> },
-            removed: Test) => {
+          (dst, removed) => {
             dst.ref.set("removed");
             expect(removed.id).toBe("42");
           });
