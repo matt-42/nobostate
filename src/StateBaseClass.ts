@@ -94,7 +94,10 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
 
     _onChange(listener: ((value: this, key: Keys) => void)) {
       this._thisSubscribers.push(listener);
-      return () => _.remove(this._thisSubscribers, l => l === listener);
+      return () => {
+        if (_.remove(this._thisSubscribers, l => l === listener).length !== 1)
+          throw new Error();
+      }
     }
 
     _setProps(props: PropSpec) {

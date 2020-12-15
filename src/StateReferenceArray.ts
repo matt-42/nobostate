@@ -47,14 +47,15 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
       this._toInitialize.length = 0;
     }
 
-    remove(filter : (o : StateObject<T>) => boolean) {
+    remove(filter: (o: StateObject<T>) => boolean): StateObject<T>[] {
       let removed = _.remove(this, filter);
-      for (let o of removed)
-      {
+      for (let o of removed) {
         let dispose = this._refsChangeListenersDispose.get(o.id);
         if (!dispose) throw new Error();
         dispose();
       }
+      this._notifyThisSubscribers();
+      return removed;
     }
 
     push(...elements: (IdType<T> | T)[]): number {
@@ -78,7 +79,7 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
 
         // Listen to change in ref.
         if (ref)
-          this._refsChangeListenersDispose.set(ref.id, ref._onChange(() =>  this._notifyThisSubscribers()));
+          this._refsChangeListenersDispose.set(ref.id, ref._onChange(() => this._notifyThisSubscribers()));
 
         // Setup on ref delete behaviors.
         ref?._onDelete(() => {
@@ -88,14 +89,22 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
           if (typeof spec._onRefDeleted === "function") // CUSTOM CALLBACK.
             spec._onRefDeleted(this._parent, ref);
         });
+
+        
       });
+      
+      if (elements.length)
+        this._notifyThisSubscribers();
 
       return this.length;
     }
   }
 }
 
-export type StateReferenceArray<T> = StateObject<T>[];
-export function stateReferenceArray<T extends HasId<any>>(elts : (T | IdType<T>)[]) {
-  return new (stateReferenceArrayMixin())(elts);
+export type StateReferenceArray<T> = {
+  remove(filter: (o: StateObject<T>) => boolean): StateObject<T>[]
+} & StateObject<T>[];
+
+export function stateReferenceArray<T extends HasId<any>>(elts: (T | IdType<T>)[]) : StateReferenceArray<T> {
+  return new (stateReferenceArrayMixin())(elts) as any;
 }
