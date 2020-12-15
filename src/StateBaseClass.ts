@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { useEffect, useState } from "react";
 import { NoboHistory } from "./history";
-import { propagatePropIds, StatePropIdentifiers } from "./prop";
+import { propagatePropIds, PropSpec, StatePropIdentifiers } from "./prop";
 import { RootState } from "./RootState";
 import { updateState } from "./updateState";
 
@@ -92,10 +92,18 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
     _thisSubscribers: ((value: this, key: Keys) => void)[] = [];
     _parentListener: (() => void) | null = null;
 
-    _getRootState() : RootState<any> {
+    _setProps(props: PropSpec) {
+      this._props = props as any;
+    }
+
+    _getRootState(): RootState<any> {
       let it = this;
       while (it._parent)
         it = it._parent;
+      if (!it)
+        throw new Error();
+      // if (!(it as any)._history)
+        // throw new Error('Root state has no _history field.');
       return it as any as RootState<any>;
     }
 
@@ -103,6 +111,8 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
       let elt: any = this._getRootState();
       for (let key of path)
         elt = elt._get(key);
+      if (!elt)
+        throw new Error(`rootStateAccess error: cannot access ${path.join('.')}`);
       return elt;
     }
 
@@ -209,11 +219,12 @@ export interface StateBaseInterface<T> {
   _props: StatePropIdentifiers<T>;
 
   _subscribers: {
-    [K : string]: ((value: any, key: Keys<T>) => void)[];
+    [K: string]: ((value: any, key: Keys<T>) => void)[];
   };
   _thisSubscribers: ((value: any, key: Keys<T>) => void)[];
   _parentListener: (() => void) | null;
 
+  _setProps(props: PropSpec): void;
   _getRootState(): { _history: NoboHistory; };
 
   _rootStateAccess(path: string[]): any;

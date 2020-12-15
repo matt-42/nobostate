@@ -54,9 +54,10 @@ export function stateTableMixin<T extends HasId<T>>() {
       let elt = anyStateObject() as any as StateObject<T>;
       elt = _.assign(elt, value);
 
-      propagatePropIds(elt, this._props);
       let id = (elt as any).id;
       this._registerChild(id, elt);
+      propagatePropIds(elt, this._props);
+
       super.set(id, elt);
       this._notifySubscribers(id, elt);
       // console.log(this._getRootState());
@@ -128,36 +129,6 @@ export function stateTableMixin<T extends HasId<T>>() {
 
       // this._insertListeners.forEach(f => f(eltToDelete._wrapped));
       this.delete(id);
-
-      // Manage foreign keys.
-      for (let c of (this._props as TablePropSpec<any>)._foreignKeys) {
-        let { srcProp, trigger } = c;
-        let tablePath = [...srcProp._path];
-        let key = tablePath.pop();
-
-        if (!key) {
-          throw new Error(`Foreign key path is empty`);
-        }
-        let table = this._rootStateAccess(tablePath) as StateTable<any> | StateArray<any>;
-        if (!table.forEach)
-          throw new Error(`Foreign key ref ${tablePath.join(".")} is not a table or an array`);
-
-        let toRemove: any[] = [];
-        table.forEach((elt: any) => {
-          let ref = elt[key as string] as StateForeignKey<any>;
-          if (ref.getId() === id) {
-            if (trigger === "cascade")
-              toRemove.push(elt.id);
-            else if (trigger === "set-null")
-              ref.set(null);
-
-            else//Get
-              trigger(elt, eltToDelete);
-          }
-        });
-        for (let id of toRemove)
-          table.remove(id);
-      }
 
       this._getRootState()._history.push({
         action: "remove",

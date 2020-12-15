@@ -1,4 +1,4 @@
-import { ForeignKeySpec } from "./prop";
+import { ForeignKeySpec, PropSpec } from "./prop";
 import { stateBaseMixin } from "./StateBaseClass";
 import { StateObject } from "./StateObjectImpl";
 import { HasId, IdType, StateTable } from "./StateTable";
@@ -44,7 +44,7 @@ import { HasId, IdType, StateTable } from "./StateTable";
 // object.frames[1]._remove(f => f.id === 42);
 
 // Nullable foreign key.
-export class StateForeignKey<T extends HasId<any>>
+export class StateForeignKeyImpl<T extends HasId<any>>
   extends stateBaseMixin<{}, typeof Object>(Object) {
 
   _isStateForeignKey = true;
@@ -52,32 +52,39 @@ export class StateForeignKey<T extends HasId<any>>
   _referencedObject: StateObject<T> | null = null;
   _disposeReferencedOnDelete: (() => void) | null = null;
 
+  _refToInitialize: IdType<T> | T | null = null;
+
   constructor(idOrObj = null as IdType<T> | T | null) {
     super();
-    this.set(idOrObj);
+    this._refToInitialize = idOrObj;
+  }
+
+  _setProps(props: PropSpec) {
+    super._setProps(props);
+    
     this._parent._onDelete(() => {
-      if (this.specs()._onThisDeleted === "cascade")
-      {
+      if (this._specs()._onThisDeleted === "cascade") {
         // remove ref when the parent stateobject is deleted.
         if (this._referencedObject)
           (this._referencedObject._parent as StateTable<T>).remove(this._referencedObject.id);
       }
     })
+    this._set(this._refToInitialize);
+    this._refToInitialize = null;
   }
-
-  specs(): ForeignKeySpec<any, any, any> {
-    let specs = this._props as ForeignKeySpec<any, any, any>;
+  _specs(): ForeignKeySpec<any, any> {
+    let specs = this._props as ForeignKeySpec<any, any>;
     if (!specs) throw new Error();
     return specs;
   }
 
-  referencedTable(): StateTable<T> {
-    let specs = this.specs();
+  _referencedTable(): StateTable<T> {
+    let specs = this._specs();
     if (!specs || !specs._ref) throw new Error();
     return this._rootStateAccess(specs._ref._path);
   }
 
-  set(idOrNewObj: IdType<T> | T | null) {
+  _set(idOrNewObj: IdType<T> | T | null) {
 
     // Stop listening to previous ref onDelete.
     this._disposeReferencedOnDelete?.();
@@ -85,18 +92,21 @@ export class StateForeignKey<T extends HasId<any>>
     // Fixme undo.
     // this._getRootState()._history
 
-    if ((idOrNewObj as any)?.id == undefined) {
-      this._referencedObject = this.referencedTable().insert(idOrNewObj as T);
+    if ((idOrNewObj as any)?.id !== undefined) {
+      this._referencedObject = this._referencedTable().insert(idOrNewObj as T);
     }
     else if (idOrNewObj !== null) {
       // Fixme, if id does not exists, it may be because it is not loaded in memory yet.
-      this._referencedObject = this.referencedTable().get(idOrNewObj as IdType<T>) || null;
+      this._referencedObject = this._referencedTable().get(idOrNewObj as IdType<T>) || null;
+    }
+    else {
+      this._referencedObject = null;
     }
 
     // Set on delete behaviors.
     if (this._referencedObject) {
       this._disposeReferencedOnDelete = this._referencedObject._onDelete(() => {
-        let spec = this._props;
+        let spec = this._specs();
         if (spec._onRefDeleted === "set-null") // SET NULL
           this._referencedObject = null;
         else if (spec._onRefDeleted === "cascade") // CASCADE
@@ -129,18 +139,64 @@ export class StateForeignKey<T extends HasId<any>>
   }
 }
 
-export class StateForeignKeyNotNull<T extends HasId<any>>
-  extends StateForeignKey<T> {
+export class StateForeignKeyNotNullImpl<T extends HasId<any>>
+  extends StateForeignKeyImpl<T> {
 
   constructor(idOrObj: IdType<T> | T) {
     super();
-    this.set(idOrObj);
+    this._set(idOrObj);
   }
 
-  set(idOrNewObj: IdType<T> | T) {
-    super.set(idOrNewObj)
+  _set(idOrNewObj: IdType<T> | T) {
+    super._set(idOrNewObj)
     if (!this._referencedObject)
       throw new Error("StateForeignNotNull::set resulted in a null reference.");
   }
 
+}
+
+
+export function createForeignKeyProxy<T extends HasId<any>>(wrapped: StateForeignKeyImpl<T> | StateForeignKeyNotNullImpl<T>) {
+  return new Proxy(wrapped, {
+    get: (target, prop, receiver) => {
+      let res = Reflect.get(target, prop);
+      if (typeof res === "function")
+        return res.bind(target);
+      else {
+        let refProp = (target._referencedObject as any)?.[prop as string];
+        if (refProp !== undefined)
+          return refProp;
+        else
+          return res;
+      }
+    },
+    set: (target, prop, value, receiver) => {
+      let ref = target._referencedObject as any;
+      let refProp = (target._referencedObject as any)?.[prop];
+
+      if (refProp !== undefined && ref) {
+        ref[prop] = value;
+        return true;
+      }
+      else {
+        if ((target as any)[prop] !== undefined) {
+          (target as any)[prop] = value;
+          return true;
+        }
+        else
+          return false;
+      }
+      // (target as any)._set(prop, value);
+      // return true;
+    },
+  });
+}
+
+export type StateForeignKey<T extends HasId<any>> = T & StateForeignKeyImpl<T>
+export type StateForeignKeyNotNull<T extends HasId<any>> = T & StateForeignKeyNotNullImpl<T>
+export function stateForeignKey<T extends HasId<any>>(id: IdType<T> | T | null) {
+  return createForeignKeyProxy(new StateForeignKeyImpl<T>(id)) as any as StateForeignKey<T>;
+}
+export function stateForeignKeyNotNull<T extends HasId<any>>(id: IdType<T> | T) {
+  return createForeignKeyProxy(new StateForeignKeyNotNullImpl<T>(id)) as any as StateForeignKeyNotNull<T>;
 }

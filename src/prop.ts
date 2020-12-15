@@ -10,8 +10,8 @@ export type PropSpec = {
   _propId: number,
   _undoIgnore?: boolean,
 };
-export type ForeignKeySpec<T, I, Parent> = PropSpec & {
-  _ref?: TablePropSpec<any>,
+export type ForeignKeySpec<T, Parent> = PropSpec & {
+  _ref?: TablePropSpec<T>,
   _onRefDeleted: "cascade" | "set-null" | ((target: any, removeElement: any) => void),
   _onThisDeleted: "cascade" | null,
 
@@ -21,12 +21,15 @@ export type TablePropSpec<T> = PropSpec & {
 } & { _: T };
 
 export type StatePropIdentifiers<T, Parent = never> =
-  T extends StateForeignKey<infer V, infer I> ? ForeignKeySpec<V, I, Parent> :
+  T extends StateForeignKey<infer V> ? ForeignKeySpec<V, Parent> :
   T extends StateObject<infer V> ? PropSpec & { [K in keyof V]: StatePropIdentifiers<V[K], StateObject<V>> } :
   T extends StateArray<any> ? PropSpec :
   T extends StateObjectArray<infer V> ? PropSpec & StatePropIdentifiers<StateObject<V>> :
   T extends StateTable<infer V> ? TablePropSpec<V> & StatePropIdentifiers<StateObject<V>> :
   PropSpec;
+
+
+type X = StatePropIdentifiers<StateObject<{x: number}>>
 
 export function createPropIds<T>(options_?: { path: string[], getNextId: () => number }): StatePropIdentifiers<T> {
   let cpt = 0;
@@ -60,7 +63,7 @@ export function createPropIds<T>(options_?: { path: string[], getNextId: () => n
 export function propagatePropIds(state: any, propId: PropSpec): void {
 
   if (state?._isStateBase === true)
-    (state as any as StateBaseInterface<any>)._props = propId as any;
+    (state as any as StateBaseInterface<any>)._setProps(propId as any);
 
   if (state?._isStateTable === true) {
     let values = (state as any as StateTable<any>).values();

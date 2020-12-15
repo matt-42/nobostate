@@ -20,7 +20,7 @@ test('subscribers-with-key', () => {
   expect(state.table._parentListener).toBeTruthy();
 
   let obj = state.table.insert({id : 1, test: 0});
-  expect(obj.assertGet(1)._parentListener).toBeTruthy();
+  expect(obj._parentListener).toBeTruthy();
 
   subscribeTest(state,
     (s: any, prop: any) => {

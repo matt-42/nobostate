@@ -40,8 +40,6 @@ export const stateObject = <T>(data: T) =>
 export const stateArray = <T>() => new (stateArrayMixin<T>())() as StateArray<T>;
 export const stateObjectArray = <T>() => new (stateObjectArrayMixin<T>())() as StateObjectArray<T>;
 export const stateTable = <T extends HasId<any>>() => new (stateTableMixin<T>())() as StateTable<T>;
-export function stateForeignKey<T extends HasId<any>>(id: IdType<T> | T | null) { return new StateForeignKey<T>(id); }
-export function stateForeignKeyNotNull<T extends HasId<any>>(id: IdType<T> | T) { return new StateForeignKeyNotNull<T>(id); }
 
 //   class X {
 //     test = 1;
@@ -88,10 +86,11 @@ type PublicStateType<T> =
 
 class SpecsBuilder {
 
-  foreignKey<P, T>(srcProp: ForeignKeySpec<any, any, P>, dstTable: TablePropSpec<T>,
+  foreignKey<P, T>(srcProp: ForeignKeySpec<any, P>, dstTable: TablePropSpec<T>,
     mode: "set-null" | "cascade" | ((elt: P, removed: T) => void) = "set-null"
   ) {
-    dstTable._foreignKeys.push({ trigger: mode, srcProp: srcProp as any });
+    // dstTable._foreignKeys.push({ trigger: mode, srcProp: srcProp as any });
+    srcProp._onRefDeleted = mode;
     srcProp._ref = dstTable as any;
   }
 
