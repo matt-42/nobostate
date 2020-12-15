@@ -1,8 +1,9 @@
 import { StateArray, stateArrayMixin, StateObjectArray } from "./array";
 import { StateBaseInterface, stateBaseMixin } from "./StateBaseClass";
-import { StateForeignKey } from "./StateForeignKey";;
+import { StateReference } from "./StateReference";;
 import { StateObject, stateObjectMixin } from "./StateObjectImpl";
 import { StateTable, stateTableMixin } from "./StateTable";
+import { StateReferenceArray } from "./StateReferenceArray";
 
 
 export type PropSpec = {
@@ -10,7 +11,7 @@ export type PropSpec = {
   _propId: number,
   _undoIgnore?: boolean,
 };
-export type ForeignKeySpec<T, Parent> = PropSpec & {
+export type ReferenceSpec<T, Parent> = PropSpec & {
   _ref?: TablePropSpec<T>,
   _onRefDeleted: "cascade" | "set-null" | ((target: any, removeElement: any) => void),
   _onThisDeleted: "cascade" | null,
@@ -21,7 +22,8 @@ export type TablePropSpec<T> = PropSpec & {
 } & { _: T };
 
 export type StatePropIdentifiers<T, Parent = never> =
-  T extends StateForeignKey<infer V> ? ForeignKeySpec<V, Parent> :
+  T extends StateReference<infer V> ? ReferenceSpec<V, Parent> :
+  T extends StateReferenceArray<infer V> ? ReferenceSpec<V, Parent> :
   T extends StateObject<infer V> ? PropSpec & { [K in keyof V]: StatePropIdentifiers<V[K], StateObject<V>> } :
   T extends StateArray<any> ? PropSpec :
   T extends StateObjectArray<infer V> ? PropSpec & StatePropIdentifiers<StateObject<V>> :
@@ -29,7 +31,7 @@ export type StatePropIdentifiers<T, Parent = never> =
   PropSpec;
 
 
-type X = StatePropIdentifiers<StateObject<{x: number}>>
+type X = StatePropIdentifiers<StateObject<{ x: number }>>
 
 export function createPropIds<T>(options_?: { path: string[], getNextId: () => number }): StatePropIdentifiers<T> {
   let cpt = 0;

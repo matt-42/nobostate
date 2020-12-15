@@ -30,7 +30,7 @@ export function useNoboState(state: any, prop?: any) {
 
 
 // export type StateKeyType<T> =
-//   T extends StateForeignKey<any> ? "id" :
+//   T extends StateReference<any> ? "id" :
 //   T extends StateTableImpl<any> ? string :
 //   T extends StateObjectImpl<infer O> ? ObjectPropsKeys<O> :
 
@@ -39,7 +39,7 @@ export function useNoboState(state: any, prop?: any) {
 //   number;
 
 // export type StateValueType<T, K extends StateKeyType<T>> =
-//   T extends StateForeignKey<any> ? "id" :
+//   T extends StateReference<any> ? "id" :
 //   T extends StateTableImpl<any> ? string :
 //   T extends StateObjectImpl<infer O> ? O[K] :
 
@@ -92,6 +92,11 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
     _thisSubscribers: ((value: this, key: Keys) => void)[] = [];
     _parentListener: (() => void) | null = null;
 
+    _onChange(listener: ((value: this, key: Keys) => void)) {
+      this._thisSubscribers.push(listener);
+      return () => _.remove(this._thisSubscribers, l => l === listener);
+    }
+
     _setProps(props: PropSpec) {
       this._props = props as any;
     }
@@ -103,7 +108,7 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
       if (!it)
         throw new Error();
       // if (!(it as any)._history)
-        // throw new Error('Root state has no _history field.');
+      // throw new Error('Root state has no _history field.');
       return it as any as RootState<any>;
     }
 
@@ -223,6 +228,8 @@ export interface StateBaseInterface<T> {
   };
   _thisSubscribers: ((value: any, key: Keys<T>) => void)[];
   _parentListener: (() => void) | null;
+
+  _onChange(listener: ((value: this, key: Keys<T>) => void)) : (() => void);
 
   _setProps(props: PropSpec): void;
   _getRootState(): { _history: NoboHistory; };

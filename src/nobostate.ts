@@ -1,8 +1,8 @@
 import { StateArray, stateArrayMixin, StateObjectArray, stateObjectArrayMixin } from "./array";
-import { createPropIds, ForeignKeySpec, PropSpec, StatePropIdentifiers, TablePropSpec } from "./prop";
+import { createPropIds, ReferenceSpec, PropSpec, StatePropIdentifiers, TablePropSpec } from "./prop";
 import { makeRootState, RootState } from "./RootState";
 import { StateBaseInterface } from "./StateBaseClass";
-import { StateForeignKey, StateForeignKeyNotNull } from "./StateForeignKey";
+import { StateReference, StateReferenceNotNull } from "./StateReference";
 import { createProxy, StateObject, stateObjectMixin } from "./StateObjectImpl";
 import { HasId, IdType, StateTable, stateTableMixin } from "./StateTable";
 
@@ -48,12 +48,12 @@ export const stateTable = <T extends HasId<any>>() => new (stateTableMixin<T>())
 // let obj = stateObject(X);
 
 // export const stateTable = <T extends HasId<any>>() => stateFactory<StateTable<T>>(StateTableImpl);
-// export function stateForeignKey<T extends HasId<any>>(id: IdType<T> | null) { return new StateForeignKey<T>(id); }
+// export function StateReference<T extends HasId<any>>(id: IdType<T> | null) { return new StateReference<T>(id); }
 
-// export function stateForeignKeyNotNull<T extends HasId<any>>(id: IdType<T>) { return new StateForeignKey<T, IdType<T>>(id); }
-// export type StateForeignKeyNotNull<T extends HasId<any>> = StateForeignKey<T, IdType<T>>;
+// export function StateReferenceNotNull<T extends HasId<any>>(id: IdType<T>) { return new StateReference<T, IdType<T>>(id); }
+// export type StateReferenceNotNull<T extends HasId<any>> = StateReference<T, IdType<T>>;
 
-// let x = {} as any as StateForeignKeyNotNull<{id : string}>
+// let x = {} as any as StateReferenceNotNull<{id : string}>
 // let y = x.get();
 
 type FilterInternalMethods<T> =
@@ -86,11 +86,25 @@ type PublicStateType<T> =
 
 class SpecsBuilder {
 
-  foreignKey<P, T>(srcProp: ForeignKeySpec<any, P>, dstTable: TablePropSpec<T>,
-    mode: "set-null" | "cascade" | ((elt: P, removed: T) => void) = "set-null"
+  reference<P, T>(srcProp: ReferenceSpec<any, P>, dstTable: TablePropSpec<T>, options? :
+    {
+      onRefDeleted?: "set-null" | "cascade" | ((elt: P, removed: T) => void)
+      onThisDeleted?: "cascade"
+    }
   ) {
-    // dstTable._foreignKeys.push({ trigger: mode, srcProp: srcProp as any });
-    srcProp._onRefDeleted = mode;
+    srcProp._onRefDeleted = options?.onRefDeleted || "set-null";
+    srcProp._onThisDeleted = options?.onThisDeleted || null;
+    srcProp._ref = dstTable as any;
+  }
+
+  referenceArray<P, T>(srcProp: ReferenceSpec<any, P>, dstTable: TablePropSpec<T>, options? :
+    {
+      onRefDeleted?: ((elt: P, removed: T) => void)
+      onThisDeleted?: "cascade"
+    }
+  ) {
+    srcProp._onRefDeleted = options?.onRefDeleted || "set-null";
+    srcProp._onThisDeleted = options?.onThisDeleted || null;
     srcProp._ref = dstTable as any;
   }
 

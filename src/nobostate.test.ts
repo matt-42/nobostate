@@ -1,5 +1,5 @@
-import { createState, stateArray, stateForeignKey, stateObject, stateObjectArray, stateTable, StateTable } from './nobostate'
-import { StateForeignKey } from './StateForeignKey';
+import { createState, stateArray, stateObject, stateObjectArray, stateTable } from './nobostate';
+import { StateTable } from './StateTable';
 import { unwrapState } from './unwrap_revive';
 
 function checkListenerCalled(state: any, key: any, fun: () => void) {
@@ -389,36 +389,4 @@ test('object-assign', () => {
   expect(state.todo === prev).toBe(true);
   
   expect(state.todo.description).toBe("test");
-});
-
-
-function propId() {
-
-  let state = createState({
-    // test: 0,
-    table: stateTable<Todo>(),
-    array: stateArray<Todo>(),
-    objectArray: stateObjectArray<Todo>(),
-  }, {
-    setSpecs: props => {
-      props.table.description._path;
-      props.array._path;
-      props.objectArray.description._undoIgnore = true;
-    }
-  });
-
-}
-
-
-test('table-clone', () => {
-  let state = createState({
-    table1: stateTable<Test>(),
-  });
-
-  state.table1.insert({ id: "1", text: "xxx" });
-  let obj = state.table1.clone("1");
-  // console.log(obj);
-  expect(obj.id !== "1").toBe(true);
-  expect(obj.text).toBe("xxx");
-  expect(state.table1.has(obj.id)).toBeTruthy();
 });

@@ -4,7 +4,7 @@ import { HistoryTableAction } from "./history";
 import { stateObject } from "./nobostate";
 import { propagatePropIds, TablePropSpec } from "./prop";
 import { Constructor, StateBaseInterface, stateBaseMixin } from "./StateBaseClass";
-import { StateForeignKey } from "./StateForeignKey";
+import { StateReference } from "./StateReference";
 import { anyStateObject, StateObject, stateObjectMixin } from "./StateObjectImpl";
 import { unwrapState, revive } from "./unwrap_revive";
 import { updateState } from "./updateState";
@@ -95,10 +95,10 @@ export function stateTableMixin<T extends HasId<T>>() {
     }
 
     set(id: Id, value: StateObject<T>): this {
-      if (!this.has(id))
-        return this.insert(value);
-      else
-        return this._set(id, value);
+      // if (!this.has(id))
+      //   return this.insert(value as any as T);
+      // else
+      return this._set(id, value);
     }
 
     assertGet(id: Id) {
