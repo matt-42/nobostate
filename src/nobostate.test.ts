@@ -1,4 +1,6 @@
-import { createState, stateArray, StateBaseClass, StateForeignKey, stateForeignKey, stateObject, stateObjectArray, stateTable, StateTable, unwrapState } from "./nobostate";
+import { createState, stateArray, stateForeignKey, stateObject, stateObjectArray, stateTable, StateTable } from './nobostate'
+import { StateForeignKey } from './StateForeignKey';
+import { unwrapState } from './unwrap_revive';
 
 function checkListenerCalled(state: any, key: any, fun: () => void) {
   let called = false;
@@ -7,14 +9,6 @@ function checkListenerCalled(state: any, key: any, fun: () => void) {
   expect(called).toBe(true);
   dispose();
 }
-function subscribeTest(state: any, listener: Function, update: () => void) {
-  let called = false;
-  let dispose = state._subscribe((s: any, prop: any) => { called = true; listener(s, prop); });
-  update();
-  expect(called).toBe(true);
-  dispose();
-}
-
 interface Todo {
   id: string,
   description: string
@@ -26,23 +20,7 @@ let state = createState({
   // todos: Array<Todo>()
 });
 
-test('insert/remove', () => {
-  // console.log(state);
-  // state.t
-  expect(state.todos.size).toBe(0);
-  state.todos.insert({ id: "1", description: "test", nullable: 23 });
-  expect(state.todos.size).toBe(1);
 
-  // state.todos[1]
-  let todo = state.todos.assertGet("1");
-  expect(todo.id).toEqual("1");
-  expect(todo.nullable).toEqual(23);
-  expect(todo.description).toEqual("test");
-
-  state.todos.remove("1");
-  expect(state.todos.size).toBe(0);
-
-});
 
 test('update props', () => {
   let state = createState({
@@ -81,54 +59,6 @@ test('subscribe on object', () => {
   expect(called).toBe(true);
 });
 
-test('subscribe on table', () => {
-
-  let called = false;
-  let called2 = false;
-  state.todos.insert({ id: "1", description: "test", nullable: 23 });
-
-  state._subscribe("todos", () => called2 = true)
-  state.todos._subscribe("1", todo => {
-    expect(todo.nullable).toBe(12);
-    called = true;
-  });
-
-  state.todos.assertGet("1").nullable = 12;
-  expect(state.todos.assertGet("1").nullable).toBe(12);
-
-  expect(called).toBe(true);
-  expect(called2).toBe(true);
-
-});
-
-// listen on insert/remove
-test('subscribe on table insert/remove', () => {
-
-  let state = createState({
-    todos: stateTable<Todo>()
-  });
-
-  let called = 0;
-  state._subscribe("todos", () => called++);
-
-  state.todos.insert({ id: "1", description: "test", nullable: 23 });
-  expect(called).toBe(1);
-  state.todos.remove("1");
-  expect(called).toBe(2);
-});
-
-test("table iterator", () => {
-  let state = createState({ todos: stateTable<Todo>() });
-
-  state.todos.insert({ id: "1", description: "test", nullable: 23 });
-  state.todos.insert({ id: "2", description: "test2", nullable: 24 });
-
-  let arr = [...state.todos.values()];
-
-  expect(arr.length).toBe(2);
-  expect(arr[0].nullable).toBe(23);
-  expect(arr[1].nullable).toBe(24);
-});
 
 test('unwrap', () => {
   let state = createState({
@@ -208,8 +138,8 @@ test('array-set', () => {
   expect([...state.todos].length).toBe(1);
 });
 
-test('object update', () => {
-  let state = createState({ obj: stateObject<{ id: string, age: number }>({ id: "", age: 0 }) });
+test('object-update', () => {
+  let state = createState({ obj: stateObject({ id: "1", age: 12 }) });
 
   state.obj._update({ id: "1", age: 12 });
 
@@ -457,60 +387,10 @@ test('object-assign', () => {
   let prev = state.todo;
   state.todo = stateObject<Todo>({ id: "1", description: "test", nullable: null });
   expect(state.todo === prev).toBe(true);
+  
+  expect(state.todo.description).toBe("test");
 });
 
-test('subscribers with key', () => {
-
-  let state = createState({
-    table: stateTable<Todo>(),
-    array: stateArray<Todo>(),
-    objectArray: stateObjectArray<Todo>(),
-  });
-
-  subscribeTest(state,
-    (s: any, prop: any) => {
-      expect(prop).toBe("table");
-    },
-    () => state.table.insert({ id: "1", description: "test", nullable: null })
-  );
-
-  subscribeTest(state,
-    (s: any, prop: any) => expect(prop).toBe("table"),
-    () => state.table.assertGet("1").description = "xx"
-  );
-
-  subscribeTest(state.table.assertGet("1"),
-    (s: any, prop: any) => expect(prop).toBe("description"),
-    () => state.table.assertGet("1").description = "xx"
-  );
-
-  subscribeTest(state.array,
-    (s: any, prop: any) => expect(prop).toBe(0),
-    () => state.array.push({ id: "1", description: "test", nullable: null })
-  );
-
-  subscribeTest(state.array,
-    (s: any, prop: any) => expect(prop).toBe(1),
-    () => state.array.push({ id: "1", description: "test", nullable: null })
-  );
-
-
-  subscribeTest(state.objectArray,
-    (s: any, prop: any) => expect(prop).toBe(0),
-    () => state.objectArray.push({ id: "1", description: "test", nullable: null })
-  );
-
-  subscribeTest(state.objectArray,
-    (s: any, prop: any) => expect(prop).toBe(1),
-    () => state.objectArray.push({ id: "1", description: "test", nullable: null })
-  );
-
-  subscribeTest(state.objectArray,
-    (s: any, prop: any) => expect(prop).toBe(1),
-    () => state.objectArray[1].description = "test"
-  );
-
-});
 
 function propId() {
 

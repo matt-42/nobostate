@@ -1,5 +1,7 @@
 import _ from "lodash";
-import { HasId, PropSpec, StateArrayImpl, StateObjectArrayImpl, StateTableImpl } from "./nobostate";
+import { StateArray } from "./array";
+import { PropSpec } from "./prop";
+import { HasId, StateTable} from "./StateTable";
 
 export interface HistoryUpdatePropAction {
   action: "updateProp";
@@ -13,14 +15,14 @@ export interface HistoryUpdatePropAction {
 export interface HistoryTableAction {
   action: "insert" | "remove";
   propId: PropSpec;
-  target: StateTableImpl<any>;
+  target: StateTable<any>;
   element: HasId<any>;
 }
 
 export interface HistoryArrayAction {
   action: "push";
   propId: PropSpec;
-  target: StateArrayImpl<any> | StateObjectArrayImpl<any>;
+  target: StateArray<any>;// | StateObjectArray<any>;
   element: any;
 }
 
