@@ -1,4 +1,4 @@
-import { StateArray, stateArrayMixin } from "./array";
+import { StateArray, stateArrayMixin, StateObjectArray } from "./array";
 import { StateBaseInterface, stateBaseMixin } from "./StateBaseClass";
 import { StateForeignKey } from "./StateForeignKey";;
 import { StateObject, stateObjectMixin } from "./StateObjectImpl";
@@ -12,20 +12,19 @@ export type PropSpec = {
 };
 export type ForeignKeySpec<T, I, Parent> = PropSpec & {
   _ref?: TablePropSpec<any>,
+  _onRefDeleted: "cascade" | "set-null" | ((target: any, removeElement: any) => void),
+  _onThisDeleted: "cascade" | null,
+
 } & { _: Parent };
 
 export type TablePropSpec<T> = PropSpec & {
-  _foreignKeys: {
-    trigger: "cascade" | "set-null" | ((target: any, removeElement: any) => void),
-    srcProp: PropSpec
-  }[];
 } & { _: T };
 
 export type StatePropIdentifiers<T, Parent = never> =
   T extends StateForeignKey<infer V, infer I> ? ForeignKeySpec<V, I, Parent> :
   T extends StateObject<infer V> ? PropSpec & { [K in keyof V]: StatePropIdentifiers<V[K], StateObject<V>> } :
   T extends StateArray<any> ? PropSpec :
-  // T extends StateObjectArray<infer V> ? PropSpec & StatePropIdentifiers<StateObject<V>> :
+  T extends StateObjectArray<infer V> ? PropSpec & StatePropIdentifiers<StateObject<V>> :
   T extends StateTable<infer V> ? TablePropSpec<V> & StatePropIdentifiers<StateObject<V>> :
   PropSpec;
 

@@ -92,7 +92,7 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
     _thisSubscribers: ((value: this, key: Keys) => void)[] = [];
     _parentListener: (() => void) | null = null;
 
-    _getRootState() {
+    _getRootState() : RootState<any> {
       let it = this;
       while (it._parent)
         it = it._parent;
@@ -141,9 +141,13 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
     // A prop has been updated.
     // notify subscribers and the parent.
     _notifySubscribers<P extends Keys>(propOrId: P, value: KeyAccessType<P>) {
-      this._thisSubscribers.forEach(sub => sub(this, propOrId));
       this._subscribers[propOrId as string]?.forEach(sub => sub(this._get(propOrId), propOrId));
+      this._thisSubscribers.forEach(sub => sub(this, propOrId));
       this._parentListener?.();
+    }
+    _notifyThisSubscribers<P extends Keys>() {
+      this._parentListener?.();
+      this._thisSubscribers.forEach(sub => sub(this, null as any));
     }
 
     _registerChild<P extends Keys>(propOrId: P, child: KeyAccessType<P>) {

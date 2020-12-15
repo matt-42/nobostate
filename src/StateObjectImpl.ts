@@ -183,6 +183,11 @@ export function stateObjectMixin<T>() {
 
     }
 
+    _onDelete(listener: (o: T) => void) {
+      this._removeListeners.push(listener);
+      return () => _.remove(this._removeListeners, l => l === listener);
+    }
+
     _update(value: { [K in keyof T]?: T[K] }) {
       for (let k in value)
         updateState(this, k, value[k]);
@@ -198,6 +203,7 @@ export function anyStateObject() {
 
 export interface StateObjectInterface<T> extends StateBaseInterface<T> {
   _removeListeners: ((o: T) => void)[];
+  _onDelete(listener: (o: T) => void) : () => void;
   _update(value: { [K in keyof T]?: T[K] }): void;
 };
 

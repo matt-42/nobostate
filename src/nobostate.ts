@@ -2,7 +2,7 @@ import { StateArray, stateArrayMixin, StateObjectArray, stateObjectArrayMixin } 
 import { createPropIds, ForeignKeySpec, PropSpec, StatePropIdentifiers, TablePropSpec } from "./prop";
 import { makeRootState, RootState } from "./RootState";
 import { StateBaseInterface } from "./StateBaseClass";
-import { StateForeignKey } from "./StateForeignKey";
+import { StateForeignKey, StateForeignKeyNotNull } from "./StateForeignKey";
 import { createProxy, StateObject, stateObjectMixin } from "./StateObjectImpl";
 import { HasId, IdType, StateTable, stateTableMixin } from "./StateTable";
 
@@ -40,6 +40,8 @@ export const stateObject = <T>(data: T) =>
 export const stateArray = <T>() => new (stateArrayMixin<T>())() as StateArray<T>;
 export const stateObjectArray = <T>() => new (stateObjectArrayMixin<T>())() as StateObjectArray<T>;
 export const stateTable = <T extends HasId<any>>() => new (stateTableMixin<T>())() as StateTable<T>;
+export function stateForeignKey<T extends HasId<any>>(id: IdType<T> | T | null) { return new StateForeignKey<T>(id); }
+export function stateForeignKeyNotNull<T extends HasId<any>>(id: IdType<T> | T) { return new StateForeignKeyNotNull<T>(id); }
 
 //   class X {
 //     test = 1;
@@ -50,8 +52,8 @@ export const stateTable = <T extends HasId<any>>() => new (stateTableMixin<T>())
 // export const stateTable = <T extends HasId<any>>() => stateFactory<StateTable<T>>(StateTableImpl);
 // export function stateForeignKey<T extends HasId<any>>(id: IdType<T> | null) { return new StateForeignKey<T>(id); }
 
-export function stateForeignKeyNotNull<T extends HasId<any>>(id: IdType<T>) { return new StateForeignKey<T, IdType<T>>(id); }
-export type StateForeignKeyNotNull<T extends HasId<any>> = StateForeignKey<T, IdType<T>>;
+// export function stateForeignKeyNotNull<T extends HasId<any>>(id: IdType<T>) { return new StateForeignKey<T, IdType<T>>(id); }
+// export type StateForeignKeyNotNull<T extends HasId<any>> = StateForeignKey<T, IdType<T>>;
 
 // let x = {} as any as StateForeignKeyNotNull<{id : string}>
 // let y = x.get();

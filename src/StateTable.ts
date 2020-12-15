@@ -50,7 +50,7 @@ export function stateTableMixin<T extends HasId<T>>() {
       })
     }
 
-    insert(value: T): this {
+    insert(value: T): StateObject<T> {
       let elt = anyStateObject() as any as StateObject<T>;
       elt = _.assign(elt, value);
 
@@ -71,7 +71,7 @@ export function stateTableMixin<T extends HasId<T>>() {
           target: this,
           element: elt
         } as HistoryTableAction);
-      return this;
+      return elt;
     }
 
     clone(id: Id) {
@@ -191,7 +191,7 @@ export interface StateTableInterface<T> extends StateBaseInterface<Map<IdType<T>
 
   attach(fun: (o: StateObject<T>) => (() => void) | void): void;
 
-  insert(elt: T): this;
+  insert(elt: T): StateObject<T>;
 
   clone(id: IdType<T>): StateObject<T>;
   set(id: IdType<T>, value: StateObject<T>): this;
