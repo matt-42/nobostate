@@ -37,7 +37,7 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
       super._setProps(props);
 
       this._parent._onDelete(() => {
-        if (this._specs()._onThisDeleted === "cascade") {
+        if (this._specs()._own) {
           // remove refs when the parent stateobject is deleted.
           this.forEach(ref => (ref._parent as StateTable<T>).remove(ref.id));
         }
@@ -60,39 +60,50 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
 
     push(...elements: (IdType<T> | T)[]): number {
 
-      elements.forEach(elt => {
-        // Fixme undo.
-        // this._getRootState()._history
+      // insertion of all elements grouped makes 1 history group.
+      this._getRootState()._history.group(() => {
+        elements.forEach(elt => {
 
-        let ref: StateObject<T> | null = null;
-        if ((elt as any)?.id !== undefined) {
-          ref = this._referencedTable().insert(elt as T)
-        }
-        else {
-          // Fixme, if id does not exists, it may be because it is not loaded in memory yet.
-          ref = this._referencedTable().get(elt as IdType<T>) || null;
-          if (!ref) throw new Error("StateReferenceArray error: trying to insert a non existing id " + elt);
-        }
+          let ref: StateObject<T> | null = null;
+          if ((elt as any)?.id !== undefined) {
+            this._getRootState()._history.ignore(() => {
+              ref = this._referencedTable().insert(elt as T)
+            });
+          }
+          else {
+            ref = this._referencedTable().get(elt as IdType<T>) || null;
+            if (!ref) throw new Error(`StateReferenceArray error: trying to insert a non existing id ${elt}`);
+          }
 
-        // console.log("pus")
-        super.push(ref);
+          if (!ref) throw new Error();
 
-        // Listen to change in ref.
-        if (ref)
-          this._refsChangeListenersDispose.set(ref.id, ref._onChange(() => this._notifyThisSubscribers()));
+          super.push(ref);
 
-        // Setup on ref delete behaviors.
-        ref?._onDelete(() => {
-          let spec = this._specs();
-          _.remove(this, r => r === ref);
+          this._getRootState()._history.push({
+            action: "anyAction",
+            target: this,
+            propId: this._props,
+            undo: () => this.remove(o => o.id === ref?.id),
+            redo: () => this.push(elt)
+          });
 
-          if (typeof spec._onRefDeleted === "function") // CUSTOM CALLBACK.
-            spec._onRefDeleted(this._parent, ref);
+          // Listen to change in ref.
+          if (ref)
+            this._refsChangeListenersDispose.set(ref.id, ref._onChange(() => this._notifyThisSubscribers()));
+
+          // Setup on ref delete behaviors.
+          ref?._onDelete(() => {
+            let spec = this._specs();
+            _.remove(this, r => r === ref);
+
+            if (typeof spec._onRefDeleted === "function") // CUSTOM CALLBACK.
+              spec._onRefDeleted(this._parent, ref);
+          });
+
+
         });
-
-        
       });
-      
+
       if (elements.length)
         this._notifyThisSubscribers();
 
@@ -102,9 +113,12 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
 }
 
 export type StateReferenceArray<T> = {
-  remove(filter: (o: StateObject<T>) => boolean): StateObject<T>[]
+  _isStateReferenceArray: boolean;
+  remove(filter: (o: StateObject<T>) => boolean): StateObject<T>[];
+  push(...elements: (IdType<T> | T)[]): number;
+
 } & StateObject<T>[];
 
-export function stateReferenceArray<T extends HasId<any>>(elts: (T | IdType<T>)[]) : StateReferenceArray<T> {
+export function stateReferenceArray<T extends HasId<any>>(elts: (T | IdType<T>)[]): StateReferenceArray<T> {
   return new (stateReferenceArrayMixin())(elts) as any;
 }

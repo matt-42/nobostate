@@ -13,19 +13,20 @@
     "babel-jest": "^26.6.3",
     "jest": "^26.6.3",
     "typescript": "^4.1.2",
-    "uglify-js": "^3.12.1"
+    "uglify-es": "^3.3.9"
   },
   "peerDependencies": {
     "react": "^17.0.1",
     "@types/react": ">=17.0.0"
   },
   "dependencies": {
-    "lodash": "^4.17.20"
+    "lodash": "^4.17.20",
+    "react": "^17.0.1"
   },
   "scripts": {
-    "build": "rm ./dist/* && tsc && uglifyjs ./dist/*.js --compress --mangle -o ./dist/nobostate.min.js && tar cvzf ./dist/nobostate.min.gz ./dist/*.min.js && ls -lha ./dist/*.min.*",
+    "build": "rm ./dist/* && tsc && uglifyjs ./dist/*.js  --compress --mangle -o ./dist/nobostate.min.js  --source-map   &&  GZIP=-9 tar cvzf ./dist/nobostate.min.gz ./dist/*.min.js && ls -lha ./dist/*.min.*",
     "alltests": "jest",
     "specifictest": "jest -t subscribers-with-key ./src/StateBaseClass.test.ts",
-    "specifictest2": "jest -t ref-change-listening"
+    "specifictest2": "jest -t  reference-undo"
   }
 }

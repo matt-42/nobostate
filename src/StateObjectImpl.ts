@@ -202,6 +202,7 @@ export function anyStateObject() {
 }
 
 export interface StateObjectInterface<T> extends StateBaseInterface<T> {
+  _isStateObject: boolean;
   _removeListeners: ((o: T) => void)[];
   _onDelete(listener: (o: T) => void) : () => void;
   _update(value: { [K in keyof T]?: T[K] }): void;

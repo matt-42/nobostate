@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { StateArray } from "./array";
 import { PropSpec } from "./prop";
-import { HasId, StateTable} from "./StateTable";
+import { HasId, StateTable } from "./StateTable";
 
 export interface HistoryUpdatePropAction {
   action: "updateProp";
@@ -25,8 +25,15 @@ export interface HistoryArrayAction {
   target: StateArray<any>;// | StateObjectArray<any>;
   element: any;
 }
+export interface HistoryAnyAction {
+  action: "anyAction";
+  propId: PropSpec;
+  target: any;
+  undo: () => void;
+  redo: () => void;
+}
 
-type HistoryAction = HistoryUpdatePropAction | HistoryArrayAction | HistoryTableAction;
+type HistoryAction = HistoryUpdatePropAction | HistoryArrayAction | HistoryTableAction | HistoryAnyAction;
 
 interface HistoryGroup {
   mergeId: string | null;
@@ -52,12 +59,17 @@ export class NoboHistory {
     }
   }
 
-  group(mergeId: string, f: () => void) {
+  group<R>(f: () => R): R;
+  group<R>(mergeId: string, f : () => R): R;
+  group<R>(mergeId_: string|(() => R), f_?: () => R): R {
     // if the last group has not the same merge id,
     // create a new group.
     // console.log(this.history.map(i => i.mergeId));
 
-    if (_.last(this.history)?.mergeId !== mergeId) {
+    let f = f_ || mergeId_ as () => R;
+    let mergeId = f_ ? (mergeId_ as string) : null;
+
+    if (!this.grouping && !this.notRecording && (mergeId === null || _.last(this.history)?.mergeId !== mergeId)) {
       // console.log("new group,", _.last(this.history)?.mergeId, mergeId)
       this.history.push({ mergeId, actions: [] });
       this.currentHistoryIndex++;
@@ -70,7 +82,7 @@ export class NoboHistory {
 
     this.startGroup();
     try {
-      f();
+      return f();
     } finally {
       this.endGroup();
     }
@@ -93,7 +105,7 @@ export class NoboHistory {
     // and if this group contains just 1 action.
     if (item.action === "updateProp" && _.last(this.history)?.actions.length === 1) {
       let last = _.last(this.history);
-      let sameUpdateInLast = last?.actions.find(e => e.target === item.target && e.propId === item.propId) as HistoryUpdatePropAction;
+      let sameUpdateInLast = last?.actions.find(e => e.action === "updateProp" && e.target === item.target && e.propId === item.propId) as HistoryUpdatePropAction;
       if (sameUpdateInLast) {
         // the last group also updated item.prop, so we group the updates:
         sameUpdateInLast.next = item.next;
@@ -115,36 +127,37 @@ export class NoboHistory {
   }
 
   private undoAction(item: HistoryAction) {
-    if (item.action === "updateProp") {
+    if (item.action === "anyAction")
+      item.undo();
+    else if (item.action === "updateProp") {
       // console.log(item.target, item.prop, item.target[item.prop], item.next);
       if (!_.isEqual(item.target[item.prop], item.next))
         throw new Error();
       item.target[item.prop] = item.prev;
     }
-    if (item.action === "remove")
+    else if (item.action === "remove")
       item.target.insert(item.element);
-    if (item.action === "insert")
+    else if (item.action === "insert")
       item.target.remove(item.element.id);
-    if (item.action === "push")
+    else if (item.action === "push")
       (item.target as any as Array<any>).pop();
   }
 
   private redoAction(item: HistoryAction) {
-
+    if (item.action === "anyAction")
+      item.redo();
     // console.log("redo ", item);
-    if (item.action === "updateProp") {
+    else if (item.action === "updateProp") {
       if (!_.isEqual(item.target[item.prop], item.prev))
         throw new Error();
       item.target[item.prop] = item.next;
     }
-    if (item.action === "remove")
+    else if (item.action === "remove")
       item.target.remove(item.element.id);
-    if (item.action === "insert")
+    else if (item.action === "insert")
       item.target.insert(item.element);
-    if (item.action === "push")
+    else if (item.action === "push")
       item.target.push(item.element);
-
-
 
   }
 

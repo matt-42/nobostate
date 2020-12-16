@@ -1,9 +1,8 @@
-import _ from "lodash";
 import { HistoryArrayAction } from "./history";
 import { stateObject } from "./nobostate";
 import { propagatePropIds } from "./prop";
 import { Constructor, StateBaseInterface, stateBaseMixin } from "./StateBaseClass";
-import { anyStateObject, StateObject, stateObjectMixin } from "./StateObjectImpl";
+import { StateObject } from "./StateObjectImpl";
 import { updateState } from "./updateState";
 
 
@@ -105,7 +104,7 @@ export function stateArrayMixin<T>() {
 
   return class StateArray extends stateBaseMixin<T[], Constructor<T[]>>(Array as Constructor<T[]>)
   {
-
+    _isStateArray = true;
     push(...elements: T[]): number {
       elements.forEach(elt => {
         super.push(elt);
@@ -142,6 +141,7 @@ export function stateObjectArrayMixin<T>() {
 
   return class StateObjectArray extends stateArrayMixin<StateObject<T>>()
   {
+    _isStateObjectArray = true;
 
     push(...elements: T[]): number {
       elements.forEach(value => {
@@ -158,6 +158,7 @@ export function stateObjectArrayMixin<T>() {
 }
 
 export interface StateArrayInterface<T> extends StateBaseInterface<T[]> {
+  _isStateArray: boolean;
   push(...elements: T[]): number;
   remove(index: number): void;
   clear(): void;
@@ -165,6 +166,7 @@ export interface StateArrayInterface<T> extends StateBaseInterface<T[]> {
 }
 
 export interface StateObjectArrayInterface<T> extends StateArrayInterface<StateObject<T>> {
+  _isStateObjectArray: boolean;
   push(...elements: T[]): number;
 }
 

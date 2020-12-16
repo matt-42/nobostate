@@ -1,4 +1,5 @@
 import { createState, stateTable } from "./nobostate";
+import { newIntId, newStringId } from "./StateTable";
 
 interface Todo {
   id: string,
@@ -127,3 +128,21 @@ test('table-clone', () => {
   expect(obj.text).toBe("xxx");
   expect(state.table1.has(obj.id)).toBeTruthy();
 });
+
+test('new-table-id', () => {
+  let state = createState({
+    table1: stateTable<{id: string}>(),
+    table2: stateTable<{id: number}>(),
+  });
+
+  let obj1 = state.table1.insert({id: newStringId() });
+  let obj2 = state.table1.insert({id: newStringId() });
+  expect(obj1.id).toBe("1");
+  expect(obj2.id).toBe("2");
+
+  let obj3 = state.table2.insert({id: newIntId() });
+  let obj4 = state.table2.insert({id: newIntId() });
+  expect(obj3.id).toBe(1);
+  expect(obj4.id).toBe(2);
+
+})

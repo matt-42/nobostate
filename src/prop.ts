@@ -4,6 +4,7 @@ import { StateReference } from "./StateReference";;
 import { StateObject, stateObjectMixin } from "./StateObjectImpl";
 import { StateTable, stateTableMixin } from "./StateTable";
 import { StateReferenceArray } from "./StateReferenceArray";
+import { createState, stateTable, stateArray, stateObjectArray } from "./nobostate";
 
 
 export type PropSpec = {
@@ -14,7 +15,7 @@ export type PropSpec = {
 export type ReferenceSpec<T, Parent> = PropSpec & {
   _ref?: TablePropSpec<T>,
   _onRefDeleted: "cascade" | "set-null" | ((target: any, removeElement: any) => void),
-  _onThisDeleted: "cascade" | null,
+  _own: boolean,
 
 } & { _: Parent };
 
@@ -25,8 +26,8 @@ export type StatePropIdentifiers<T, Parent = never> =
   T extends StateReference<infer V> ? ReferenceSpec<V, Parent> :
   T extends StateReferenceArray<infer V> ? ReferenceSpec<V, Parent> :
   T extends StateObject<infer V> ? PropSpec & { [K in keyof V]: StatePropIdentifiers<V[K], StateObject<V>> } :
-  T extends StateArray<any> ? PropSpec :
   T extends StateObjectArray<infer V> ? PropSpec & StatePropIdentifiers<StateObject<V>> :
+  T extends StateArray<any> ? PropSpec :
   T extends StateTable<infer V> ? TablePropSpec<V> & StatePropIdentifiers<StateObject<V>> :
   PropSpec;
 
@@ -63,6 +64,8 @@ export function createPropIds<T>(options_?: { path: string[], getNextId: () => n
 
 
 export function propagatePropIds(state: any, propId: PropSpec): void {
+
+  if (!propId) return;
 
   if (state?._isStateBase === true)
     (state as any as StateBaseInterface<any>)._setProps(propId as any);

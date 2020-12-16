@@ -7,10 +7,10 @@
  */
 
 import _ from "lodash";
-import { copyStateArray, stateArrayMixin } from "./array";
+import { copyStateArray, StateArray, stateArrayMixin } from "./array";
 import { HistoryUpdatePropAction } from "./history";
 import { propagatePropIds } from "./prop";
-import { stateObjectMixin } from "./StateObjectImpl";
+import { StateObject, stateObjectMixin } from "./StateObjectImpl";
 import { StateTable, stateTableMixin } from "./StateTable";
 
 export function updateState(dst: any, prop: any, src: any) {
@@ -22,9 +22,15 @@ export function updateState(dst: any, prop: any, src: any) {
 
   let toUpdate = dst._get(prop);
   if (toUpdate?._isStateArray) {// || toUpdate instanceof StateObjectArrayImpl) {
+    if (!(src as StateArray<any>)._isStateArray)
+      throw new Error("UpdateState type error when updating array.");
+
     copyStateArray(toUpdate, src);
   }
   else if (toUpdate?._isStateObject) {
+    if (!(src as StateObject<any>)._isStateObject)
+      throw new Error("UpdateState type error when updating object.");
+
     let obj = toUpdate as any;
     for (let k in src) {
       if ((k as string).startsWith("_")) continue;
@@ -40,11 +46,14 @@ export function updateState(dst: any, prop: any, src: any) {
     }
   }
   else if (toUpdate?._isStateTable) {
-    let newKeys = src._stateTable.map((e: any) => e.id);
+    let srcTable = (src as StateTable<any>)
+    if (!srcTable._isStateTable)
+      throw new Error("UpdateState type error when updating table.");
+    let newKeys = srcTable.map((e: any) => e.id);
     let idsToRemove = _.difference([...toUpdate.ids()], newKeys);
     for (let id of idsToRemove)
       toUpdate.remove(id);
-    for (let elt of src._stateTable)
+    for (let elt of srcTable.values())
       if ((toUpdate as StateTable<any>).has(elt.id))
         updateState(toUpdate, elt.id, elt);
 

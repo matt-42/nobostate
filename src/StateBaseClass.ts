@@ -104,7 +104,7 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
       this._props = props as any;
     }
 
-    _getRootState(): RootState<any> {
+    _getRootState(): RootState<unknown> {
       let it = this;
       while (it._parent)
         it = it._parent;
@@ -112,7 +112,7 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
         throw new Error();
       // if (!(it as any)._history)
       // throw new Error('Root state has no _history field.');
-      return it as any as RootState<any>;
+      return it as any as RootState<unknown>;
     }
 
     _rootStateAccess(path: string[]) {
@@ -221,6 +221,7 @@ type Keys<T> =
   keyof T;
 
 export interface StateBaseInterface<T> {
+  _isStateBase: boolean;
 
   _parent: any | null;
   // _props: StatePropIdentifiers<T> = null as any;

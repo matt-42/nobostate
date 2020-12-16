@@ -54,6 +54,8 @@ export class StateReferenceImpl<T extends HasId<any>>
   _disposeRefOnChange: (() => void) | null = null;
   _refToInitialize: IdType<T> | T | null = null;
 
+  _previousSetArgument: IdType<T> | T | null = null;
+
   constructor(idOrObj = null as IdType<T> | T | null) {
     super();
     this._refToInitialize = idOrObj;
@@ -63,11 +65,9 @@ export class StateReferenceImpl<T extends HasId<any>>
     super._setProps(props);
 
     this._parent._onDelete(() => {
-      if (this._specs()._onThisDeleted === "cascade") {
+      if (this._specs()._own)
         // remove ref when the parent stateobject is deleted.
-        if (this._referencedObject)
-          (this._referencedObject._parent as StateTable<T>).remove(this._referencedObject.id);
-      }
+        this._removeReferencedObject();
     })
     this._set(this._refToInitialize);
     this._refToInitialize = null;
@@ -84,30 +84,58 @@ export class StateReferenceImpl<T extends HasId<any>>
     return this._rootStateAccess(specs._ref._path);
   }
 
+  _removeReferencedObject() {
+    if (this._referencedObject)
+      (this._referencedObject._parent as StateTable<T>).remove(this._referencedObject.id);
+  }
+
+  _isNull() { return this._referencedObject === null; }
+
   _set(idOrNewObj: IdType<T> | T | null) {
+
+    if (!this._getRootState()._history)
+      throw new Error("Cannot set a reference on a object unattached to any root state.");
 
     // Stop listening to previous ref onDelete.
     this._disposeReferencedOnDelete?.();
     this._disposeRefOnChange?.();
 
-    // Fixme undo.
-    // this._getRootState()._history
+    this._disposeReferencedOnDelete = null;
+    this._disposeRefOnChange = null;
 
-    if ((idOrNewObj as any)?.id !== undefined) {
-      this._referencedObject = this._referencedTable().insert(idOrNewObj as T);
-    }
-    else if (idOrNewObj !== null) {
-      // Fixme, if id does not exists, it may be because it is not loaded in memory yet.
-      this._referencedObject = this._referencedTable().get(idOrNewObj as IdType<T>) || null;
-    }
-    else {
-      this._referencedObject = null;
-    }
+    // Do not record in history the insert/remove of the referenced object.
+    this._getRootState()._history.ignore(() => {
 
+      // remove the referenced object if it is owned.
+      if (this._specs()._own) this._removeReferencedObject();
+
+      if ((idOrNewObj as any)?.id !== undefined) {
+        this._referencedObject = this._referencedTable().insert(idOrNewObj as T)
+      }
+      else if (idOrNewObj !== null) {
+        this._referencedObject = this._referencedTable().get(idOrNewObj as IdType<T>) || null;
+        if (!this._referencedObject)
+          throw new Error("StateReferenceArray error: trying to reference a non existing id " + idOrNewObj);
+      }
+      else {
+        this._referencedObject = null;
+      }
+
+    });
+
+    let prev = this._previousSetArgument;
+    this._getRootState()._history.push({
+      action: "anyAction",
+      target: this,
+      propId: this._props,
+      undo: () => this._set(prev),
+      redo: () => this._set(idOrNewObj)
+    });
+    this._previousSetArgument = idOrNewObj;
 
     // Listen to change in ref.
     if (this._referencedObject)
-      this._disposeRefOnChange =  this._referencedObject._onChange(() => this._notifyThisSubscribers());
+      this._disposeRefOnChange = this._referencedObject._onChange(() => this._notifyThisSubscribers());
 
     // Set on delete behaviors.
     if (this._referencedObject) {
@@ -201,9 +229,9 @@ export function createStateReferenceProxy<T extends HasId<any>>(wrapped: StateRe
 
 export type StateReference<T extends HasId<any>> = T & StateReferenceImpl<T>
 export type StateReferenceNotNull<T extends HasId<any>> = T & StateReferenceNotNullImpl<T>
-export function StateReference<T extends HasId<any>>(id: IdType<T> | T | null) {
+export function stateReference<T extends HasId<any>>(id: IdType<T> | T | null) {
   return createStateReferenceProxy(new StateReferenceImpl<T>(id)) as any as StateReference<T>;
 }
-export function StateReferenceNotNull<T extends HasId<any>>(id: IdType<T> | T) {
+export function stateReferenceNotNull<T extends HasId<any>>(id: IdType<T> | T) {
   return createStateReferenceProxy(new StateReferenceNotNullImpl<T>(id)) as any as StateReferenceNotNull<T>;
 }

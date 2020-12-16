@@ -1,6 +1,7 @@
 import { createState, stateTable } from "./nobostate";
-import { StateReference } from "./StateReference";
+import { stateReference, StateReference } from "./StateReference";
 import { stateReferenceArrayMixin, StateReferenceArray, stateReferenceArray } from "./StateReferenceArray";
+import { newStringId } from "./StateTable";
 
 type Test = { id: string, text: string };
 
@@ -16,7 +17,7 @@ test('ref-change-listening', () => {
     });
 
   state.table1.insert({ id: "1", text: "xxx" });
-  state.table2.insert({ id: "1", ref: StateReference<Test>("1") });
+  state.table2.insert({ id: "1", ref: stateReference<Test>("1") });
 
   let called = false;
   state.table2.assertGet("1")._subscribe(() => called = true);
@@ -28,7 +29,7 @@ test('ref-change-listening', () => {
   called = false;
   state.table1.assertGet("1").text = "b";
   expect(called).toBe(false);
-  
+
 });
 
 test('foreignkey-set-null', () => {
@@ -43,7 +44,7 @@ test('foreignkey-set-null', () => {
     });
 
   state.table1.insert({ id: "1", text: "xxx" });
-  state.table2.insert({ id: "1", ref: StateReference<Test>("1") });
+  state.table2.insert({ id: "1", ref: stateReference<Test>("1") });
 
   let ref = state.table2.assertGet("1").ref;
 
@@ -67,9 +68,11 @@ test('foreign-key-cascade', () => {
     });
 
   state.table1.insert({ id: "1", text: "xxx" });
-  state.table2.insert({ id: "1", ref: StateReference<Test>("1") });
-  state.table2.insert({ id: "2", ref: StateReference<Test>("1") });
-  state.table2.insert({ id: "3", ref: StateReference<Test>("2") });
+  state.table1.insert({ id: "2", text: "xxx" });
+
+  state.table2.insert({ id: "1", ref: stateReference<Test>("1") });
+  state.table2.insert({ id: "2", ref: stateReference<Test>("1") });
+  state.table2.insert({ id: "3", ref: stateReference<Test>("2") });
 
   expect(state.table2.assertGet("1").ref.id).toBe("1");
   expect(state.table2.assertGet("1").ref.text).toBe("xxx");
@@ -99,7 +102,7 @@ test('foreign-key-custom-trigger', () => {
     });
 
   state.table1.insert({ id: "42", text: "xxx" });
-  state.table2.insert({ id: "1", ref: StateReference<Test>("42"), x: 0 });
+  state.table2.insert({ id: "1", ref: stateReference<Test>("42"), x: 0 });
 
   state.table1.remove("42");
   expect(state.table2.size).toBe(1);
@@ -117,12 +120,12 @@ test('foreign-key-on-this-deleted-cascade', () => {
   },
     {
       setSpecs: (props, specs) => {
-        specs.reference(props.table2.ref, props.table1, { onThisDeleted: "cascade" });
+        specs.reference(props.table2.ref, props.table1, { own: true });
       }
     });
 
   state.table1.insert({ id: "42", text: "xxx" });
-  state.table2.insert({ id: "1", ref: StateReference<Test>("42"), x: 0 });
+  state.table2.insert({ id: "1", ref: stateReference<Test>("42"), x: 0 });
 
   state.table2.remove("1");
   expect(state.table2.size).toBe(0);
@@ -130,87 +133,57 @@ test('foreign-key-on-this-deleted-cascade', () => {
 });
 
 
-test('reference-many-remove', () => {
+test('reference-undo', () => {
 
   let state = createState({
     table1: stateTable<Test>(),
-    table2: stateTable<{ id: string, refs: StateReferenceArray<Test>, x: number }>(),
+    table2: stateTable<{ id: string, ref: StateReference<Test>, x: number }>(),
   },
-    { setSpecs: (props, specs) => {
-        specs.referenceArray(props.table2.refs, props.table1);
+    {
+      setSpecs: (props, specs) => {
+        specs.reference(props.table2.ref, props.table1, { own: true });
       }
     });
 
-  state.table1.insert({ id: "42", text: "a" });
-  state.table1.insert({ id: "43", text: "b" });
-  state.table2.insert({ id: "1", refs: stateReferenceArray<Test>(["42", "43"]), x: 0 });
+  state.table2.insert({ id: "1", ref: stateReference<Test>(null), x: 0 });
+  let obj = state.table2.assertGet("1");
 
-  let called = false;
-  state.table2.assertGet("1")._subscribe(() => called = true);
-  state.table2.assertGet("1").refs.remove(o => o.id === "42");
-  expect(called).toBeTruthy();
+  expect(state.table2.assertGet("1").ref.id).toBeUndefined();
 
-  expect(state.table2.assertGet("1").refs.length).toBe(1);
-  expect(state.table2.assertGet("1").refs[0].id).toBe("43");
+  obj.ref._set({
+    id: newStringId(),
+    text: "xxx"
+  });
+
+  expect(state.table2.assertGet("1").ref.id).toBeDefined();
+  expect(state.table1.size).toBe(1);
+  expect(state._history.size()).toBe(2);
+
+  let ref = state.table2.assertGet("1").ref;
+  expect(ref).toBe(state.table2.assertGet("1").ref);
+
+  ref._set(null);
+
+  // state.table2.assertGet("1").ref._set(null);
+  expect(ref.id).toBeUndefined();
+  expect(ref._isNull()).toBeTruthy();
+  expect(state._history.size()).toBe(3);
+
+  state._history.undo();
+
+  expect(state.table1.size).toBe(1);
+  expect(ref._isNull()).toBeFalsy();
+  expect(ref.id).toBeDefined();
+  expect(state._history.size()).toBe(3);
+  expect(ref.id).toBeDefined();
+
+  state._history.redo();
+
+  expect(state._history.size()).toBe(3);
+  expect(ref.id).toBeUndefined();
+  expect(ref._isNull()).toBeTruthy();
 
 });
-
-test('reference-many', () => {
-
-  let state = createState({
-    table1: stateTable<Test>(),
-    table2: stateTable<{ id: string, refs: StateReferenceArray<Test>, x: number }>(),
-  },
-    { setSpecs: (props, specs) => {
-        specs.referenceArray(props.table2.refs, props.table1);
-      }
-    });
-
-  state.table1.insert({ id: "42", text: "a" });
-  state.table1.insert({ id: "43", text: "b" });
-  state.table2.insert({ id: "1", refs: stateReferenceArray<Test>(["42", "43"]), x: 0 });
-
-  expect(state.table2.get("1").refs.length).toBe(2);
-  expect(state.table2.get("1").refs[0].text).toBe("a");
-  expect(state.table2.get("1").refs[1].text).toBe("b");
-
-  // Update ref must signal this. 
-  let called = false;
-  state.table2.assertGet("1")._subscribe(() => called = true);
-
-  state.table1.assertGet("42").text = "c";
-  expect(state.table2.get("1").refs[0].text).toBe("c");
-
-  expect(called).toBeTruthy();
-
-  state.table2.assertGet("1").refs.remove(o => o.id === "42");
-  called = false;
-  state.table1.assertGet("42").text = "d";
-  expect(called).toBeFalsy();
-
-
-  
-});
-
-test('reference-many-deletethis-cascade', () => {
-
-  let state = createState({
-    table1: stateTable<Test>(),
-    table2: stateTable<{ id: string, refs: StateReferenceArray<Test>, x: number }>(),
-  },
-    { setSpecs: (props, specs) => {
-        specs.referenceArray(props.table2.refs, props.table1, {onThisDeleted: "cascade"});
-      }
-    });
-
-  state.table1.insert({ id: "42", text: "a" });
-  state.table1.insert({ id: "43", text: "b" });
-  state.table2.insert({ id: "1", refs: stateReferenceArray<Test>(["42", "43"]), x: 0 });
-  
-  state.table2.remove("1");
-  expect(state.table2.size).toBe(0);
-});
-
 
 // test('reference-many', () => {
 
@@ -221,7 +194,7 @@ test('reference-many-deletethis-cascade', () => {
 //     {
 //       setSpecs: (props, specs) => {
 //         specs.referenceArray(props.table2.refs, props.table1, {
-//           onThisDeleted: "cascade",
+//           own: true,
 //           onRefDeleted: (obj, )
 //         });
 //       }
@@ -233,7 +206,7 @@ test('reference-many-deletethis-cascade', () => {
 
 //   expect(state.table2.get("1").refs[0].text).toBe("a");
 //   expect(state.table2.get("1").refs[1].text).toBe("b");
-  
+
 //   state.table2.remove("1");
 //   expect(state.table2.size).toBe(0);
 //   expect(state.table1.size).toBe(0);

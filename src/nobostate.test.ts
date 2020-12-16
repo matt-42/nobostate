@@ -79,9 +79,9 @@ test('load', () => {
     todos: stateTable<Todo>()
   });
 
-  state._load({
-    todos: { _stateTable: [{ id: "1", description: "test", nullable: 23 }] }
-  });
+  state._load({ _stateObject: {
+    todos: { _stateTable: [ { _stateObject:  { id: "1", description: "test", nullable: 23 } }] }
+  }});
 
   expect(state.todos.assertGet("1").id).toBe("1");
   expect(state.todos.assertGet("1").description).toBe("test");
@@ -172,7 +172,7 @@ test('undo updateprop', () => {
   expect(state.todos.assertGet("1").nullable).toBe(12);
 });
 
-test('undo insert', () => {
+test('undo-insert', () => {
   let state = createState({
     todos: stateTable<Todo>()
   });

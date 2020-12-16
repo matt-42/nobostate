@@ -11,10 +11,12 @@
  * @param ignoreProps 
  */
 
-import { StateArray, stateArrayMixin } from "./array";
-import { stateArray, stateObject, stateTable } from "./nobostate";
+import { StateArray, stateArrayMixin, StateObjectArray } from "./array";
+import { stateArray, stateObject, stateObjectArray, stateTable } from "./nobostate";
 import { stateBaseMixin } from "./StateBaseClass";
 import { StateObject, stateObjectMixin } from "./StateObjectImpl";
+import { StateReference, stateReference, StateReferenceImpl } from "./StateReference";
+import { stateReferenceArray, stateReferenceArrayMixin } from "./StateReferenceArray";
 import { StateTable, stateTableMixin } from "./StateTable";
 
 type unwrappedObject = { _stateObject: any }
@@ -24,6 +26,38 @@ type unwrappedTable = { _stateTable: any[] }
 // type unwrapped = { _stateTable: any[] }
 
 type unwrappedAny = unwrappedObject | unwrappedArray | unwrappedObjectArray | unwrappedTable;
+
+// Revive references after all state table elements has been revived.
+export function reviveReferences(state: any): any {
+
+  if (state._stateReference !== undefined) {
+    return stateReference(state._stateReference);
+  }
+  else if (state._stateReferenceArray !== undefined) {
+    return stateReferenceArray(state._stateReference);
+  }
+  else if (state._isStateObject) {
+    for (let k in state._stateObject)
+      if (!k.startsWith("_"))
+        (state as any)[k] = reviveReferences(state[k]);
+    return state;
+  }
+  else if (state._isStateTable)
+  {
+    for (let elt of (state as StateTable<any>).values())
+      (state as StateTable<any>).set(elt.id, reviveReferences(elt));
+    return state;
+  }
+  else if (state._isStateArray) {
+    return state;
+  }
+  else if (state._isStateObjectArray) {
+    for (let i = 0; i < (state as StateObjectArray<any>).length; i++)
+      state[i] = reviveReferences(state[i]);
+    return state;
+  }
+  else return state;
+}
 
 export function revive(state: unwrappedAny): any {
 
@@ -36,7 +70,7 @@ export function revive(state: unwrappedAny): any {
   // map.
   else if (anyState._stateTable) {
     let table = stateTable();
-    anyState._stateTable.forEach((elt: any) => table.insert(elt));
+    anyState._stateTable.forEach((elt: any) => table.insert(revive(elt)));
     return table as any;
   }
   // Array
@@ -46,11 +80,11 @@ export function revive(state: unwrappedAny): any {
     return arr as any;
   }
   // Object Array.
-  // else if (anyState._stateObjectArray) {
-  //   let arr = stateObjectArray();
-  //   arr.push(...anyState._stateObjectArray);
-  //   return arr as any;
-  // }
+  else if (anyState._stateObjectArray) {
+    let arr = stateObjectArray();
+    arr.push(...anyState._stateObjectArray.map(revive));
+    return arr as any;
+  }
   // Object
   else if (anyState._stateObject) {
     let obj = stateObject(Object);
@@ -82,7 +116,16 @@ type UnwrapedType<T> =
 
 export function unwrapState<T>(state: T): UnwrapedType<T>;
 export function unwrapState<T>(state: T): any {
-  if ((state as any)._isStateTable) { // Table
+
+  if ((state as any)._isStateReference) { // Ref
+    let ref = (state as any as StateReferenceImpl<any>)
+    return { _stateReference: ref._referencedObject ? ref._referencedObject.id : null };
+  }
+  else if ((state as any)._isStateReferenceArray) { // Ref Array
+    let ref = (state as any as any[])
+    return { _stateReferenceArray: ref.map(r => r.id) };
+  }
+  else if ((state as any)._isStateTable) { // Table
     return { _stateTable: [...(state as any as StateTable<any>).values()].map(v => unwrapState(v)) };
   }
   else if ((state as any)._isStateObject) { // StateObject
