@@ -15,9 +15,9 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
     _toInitialize: (IdType<T> | T)[];
     _refDisposers = new Map<IdType<T>, (() => void)[]>();
 
-    constructor(array: (IdType<T> | T)[]) {
+    constructor(array?: (IdType<T> | T)[]) {
       super();
-      this._toInitialize = array;
+      this._toInitialize = array || [];
     }
 
     _specs(): ReferenceSpec<any, any> {
@@ -147,6 +147,6 @@ export type StateReferenceArray<T> = {
 
 } & StateObject<T>[];
 
-export function stateReferenceArray<T extends HasId<any>>(elts: (T | IdType<T>)[]): StateReferenceArray<T> {
+export function stateReferenceArray<T extends HasId<any>>(elts?: (T | IdType<T>)[]): StateReferenceArray<T> {
   return new (stateReferenceArrayMixin())(elts) as any;
 }

@@ -1,7 +1,7 @@
 import { StateArray, StateObjectArray } from "./StateArray";
 import { StateBaseInterface } from "./StateBase";
 import { StateObject } from "./StateObject";
-import { StateReference } from "./StateReference";
+import { StateReference, StateReferenceNotNull } from "./StateReference";
 import { StateReferenceArray } from "./StateReferenceArray";
 import { StateTable } from "./StateTable";
 ;
@@ -23,6 +23,7 @@ export type TablePropSpec<T> = PropSpec & {
 } & { _: T };
 
 export type StatePropIdentifiers2<T, Parent = never> =
+  T extends StateReferenceNotNull<infer V> ? ReferenceSpec<V, Parent> :
   T extends StateReference<infer V> ? ReferenceSpec<V, Parent> :
   T extends StateReferenceArray<infer V> ? ReferenceSpec<V, Parent> :
   T extends StateObject<infer V> ? PropSpec & { [K in keyof V]: StatePropIdentifiers2<V[K], StateObject<V>> } :
@@ -32,6 +33,7 @@ export type StatePropIdentifiers2<T, Parent = never> =
   PropSpec;
 
 export type StatePropIdentifiers<T, Parent = never> =
+  T extends StateReferenceNotNull<infer V> ? ReferenceSpec<V, Parent> :
   T extends StateReference<infer V> ? ReferenceSpec<V, Parent> :
   T extends StateReferenceArray<infer V> ? ReferenceSpec<V, Parent> :
   T extends StateObject<infer V> ? PropSpec & { [K in keyof V]: StatePropIdentifiers2<V[K], StateObject<V>> } :
@@ -41,7 +43,7 @@ export type StatePropIdentifiers<T, Parent = never> =
 
   T extends (infer O)[] ? PropSpec & StatePropIdentifiers2<StateObject<O>> :
   T extends Array<infer O> ? PropSpec & StatePropIdentifiers2<StateObject<O>> :
-  T extends Map<any, infer O> ? TablePropSpec<O> & StatePropIdentifiers2<StateObject<O>>  :
+  T extends Map<any, infer O> ? TablePropSpec<O> & StatePropIdentifiers2<StateObject<O>> :
 
   PropSpec & { [K in keyof T]: StatePropIdentifiers2<T[K], StateObject<T>> };
 

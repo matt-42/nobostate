@@ -1,5 +1,5 @@
 import { ReferenceSpec, PropSpec } from "./prop";
-import { stateBaseMixin } from "./StateBase";
+import { StateBaseInterface, stateBaseMixin } from "./StateBase";
 import { StateObject } from "./StateObject";
 import { HasId, IdType, StateTable } from "./StateTable";
 
@@ -58,7 +58,7 @@ export class StateReferenceImpl<T extends HasId<any>>
 
   _previousSetArgument: IdType<T> | T | null = null;
 
-  constructor(idOrObj = null as IdType<T> | T | null) {
+  constructor(idOrObj = null as IdType<T> | T | StateObject<T> | null) {
     super();
     this._refToInitialize = idOrObj;
   }
@@ -82,6 +82,11 @@ export class StateReferenceImpl<T extends HasId<any>>
     this._set(this._refToInitialize);
     this._refToInitialize = null;
   }
+
+  _dereference() {
+    return this._referencedObject;
+  }
+
   _disposeReference() {
     this._disposeRefOnDelete?.();
     this._disposeRefOnChange?.();
@@ -109,8 +114,9 @@ export class StateReferenceImpl<T extends HasId<any>>
   }
 
   _isNull() { return this._referencedObject === null; }
+  _isNotNull() { return this._referencedObject !== null; }
 
-  _set(idOrNewObj: IdType<T> | T | null) {
+  _set(idOrNewObj: IdType<T> | StateObject<T> | T | null) {
 
     if (!this._getRootState()._history)
       throw new Error("Cannot set a reference on a object unattached to any root state.");
@@ -124,7 +130,16 @@ export class StateReferenceImpl<T extends HasId<any>>
       // remove the referenced object if it is owned.
       if (this._specs()._own) this._removeReferencedObject();
 
-      if ((idOrNewObj as any)?.id !== undefined) {
+      if ((idOrNewObj as StateBaseInterface<any>)?._isStateBase) {
+        this._referencedObject = idOrNewObj as StateObject<T>;
+        // If we will own the object check that is is not already owned. 
+        if (this._specs()._own && this._referencedObject._backReferences(this._specs()).length)
+        {
+          let owner = this._referencedObject._backReferences(this._specs())[0];
+          throw new Error(`Reference is already owned by ${owner._props._path.join('.')}[id == ${owner.id}]`);
+        }
+      }
+      else if ((idOrNewObj as any)?.id !== undefined) {
         this._referencedObject = this._referencedTable().insert(idOrNewObj as T)
       }
       else if (idOrNewObj !== null) {
@@ -195,17 +210,21 @@ export class StateReferenceImpl<T extends HasId<any>>
 export class StateReferenceNotNullImpl<T extends HasId<any>>
   extends StateReferenceImpl<T> {
 
-  constructor(idOrObj: IdType<T> | T) {
+  constructor(idOrObj: IdType<T> | T | StateObject<T>) {
     super();
     this._set(idOrObj);
   }
 
-  _set(idOrNewObj: IdType<T> | T) {
+  _set(idOrNewObj: IdType<T> | T | StateObject<T>) {
     super._set(idOrNewObj)
     if (!this._referencedObject)
       throw new Error("StateForeignNotNull::set resulted in a null reference.");
   }
+  _dereference() {
+    if (!this._referencedObject) throw new Error();
 
+    return this._referencedObject;
+  }
 }
 
 
@@ -247,9 +266,9 @@ export function createStateReferenceProxy<T extends HasId<any>>(wrapped: StateRe
 
 export type StateReference<T extends HasId<any>> = T & StateReferenceImpl<T>
 export type StateReferenceNotNull<T extends HasId<any>> = T & StateReferenceNotNullImpl<T>
-export function stateReference<T extends HasId<any>>(id: IdType<T> | T | null) {
+export function stateReference<T extends HasId<any>>(id: IdType<T> | T | StateObject<T> | null) {
   return createStateReferenceProxy(new StateReferenceImpl<T>(id)) as any as StateReference<T>;
 }
-export function stateReferenceNotNull<T extends HasId<any>>(id: IdType<T> | T) {
+export function stateReferenceNotNull<T extends HasId<any>>(id: IdType<T> | T | StateObject<T>) {
   return createStateReferenceProxy(new StateReferenceNotNullImpl<T>(id)) as any as StateReferenceNotNull<T>;
 }

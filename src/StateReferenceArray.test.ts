@@ -182,9 +182,6 @@ test('reference-array-back-reference', () => {
 
   state.table2.remove("1");
 
-  bra = a._backReferences(state.table2._props.refs);
-  brb = b._backReferences(state.table2._props.refs);
-
   expect(bra.length).toBe(0);
   expect(brb.length).toBe(1);
 

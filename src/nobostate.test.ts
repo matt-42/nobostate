@@ -4,7 +4,7 @@ import { unwrapState } from './unwrap_revive';
 
 function checkListenerCalled(state: any, key: any, fun: () => void) {
   let called = false;
-  let dispose = state._subscribe(key, () => called = true);
+  let dispose = state._subscribeKey(key, () => called = true);
   fun();
   expect(called).toBe(true);
   dispose();
@@ -47,7 +47,7 @@ test('subscribe on object', () => {
   state.todos.insert({ id: "1", description: "test", nullable: 23 });
 
   // console.log(state.todos._assertassertGet("1")._subscribe);
-  state.todos.assertGet("1")._subscribe("nullable", nullable => {
+  state.todos.assertGet("1")._subscribeKey("nullable", nullable => {
     // console.log("call!!");
     expect(nullable).toBe(12);
     called = true;
@@ -90,7 +90,7 @@ test('load', () => {
 
 function subscribeCheck(state: any, key: any) {
   let called = false;
-  state._subscribe(key, () => called = true);
+  state._subscribeKey(key, () => called = true);
   return () => expect(called).toBe(true);
 }
 

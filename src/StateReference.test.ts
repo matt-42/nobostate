@@ -186,7 +186,25 @@ test('reference-undo', () => {
 });
 
 
+test('check-multiple-owner', () => {
 
+  let state = createState({
+    table1: stateTable<Test>(),
+    table2: stateTable<{ id: string, ref: StateReference<Test> }>(),
+  },
+    {
+      setSpecs: (props, specs) => {
+        specs.reference(props.table2.ref, props.table1, { own: true });
+      }
+    });
+
+  let obj = state.table1.insert({ id: "42", text: "xxx" });
+  let objWithRef = state.table2.insert({ id: "1", ref: stateReference<Test>(obj)});
+  
+  // state.table2.insert({ id: "2", ref: stateReference<Test>(obj)});
+  expect(() => state.table2.insert({ id: "2", ref: stateReference<Test>(obj)})).toThrowError();
+
+});
 
 test('back-reference', () => {
 

@@ -1,11 +1,8 @@
 import _ from "lodash";
-import { Key, useEffect, useState } from "react";
-import { StateArray, StateArrayInterface, StateObjectArray } from "./StateArray";
+import { useEffect, useState } from "react";
 import { NoboHistory } from "./history";
-import { propagatePropIds, PropSpec, StatePropIdentifiers } from "./prop";
+import { PropSpec, StatePropIdentifiers } from "./prop";
 import { RootState } from "./RootState";
-import { StateObject } from "./StateObject";
-import { IdType, StateTable } from "./StateTable";
 import { updateState } from "./updateState";
 
 
@@ -31,25 +28,6 @@ export function useNoboState(state: any, prop?: any) {
   return value;
 }
 
-
-// export type StateKeyType<T> =
-//   T extends StateReference<any> ? "id" :
-//   T extends StateTableImpl<any> ? string :
-//   T extends StateObjectImpl<infer O> ? ObjectPropsKeys<O> :
-
-//   // T extends StateArrayImpl<any> ? number : 
-//   // T extends StateObjectArrayImpl<any> ? number :   
-//   number;
-
-// export type StateValueType<T, K extends StateKeyType<T>> =
-//   T extends StateReference<any> ? "id" :
-//   T extends StateTableImpl<any> ? string :
-//   T extends StateObjectImpl<infer O> ? O[K] :
-
-//   // T extends StateArrayImpl<any> ? number : 
-//   // T extends StateObjectArrayImpl<any> ? number :   
-//   number;
-
 export type ObjectPropsKeys<T> = {
   [K in keyof T]: T[K] extends Function ? never : K;
 }[keyof T];
@@ -67,62 +45,15 @@ type Keys<T> =
   T extends any[] ? number :
   keyof T;
 
-  // type UnwrapStateType<T> = 
-  // T extends StateArray<infer O> ? O :
-  // T extends StateObjectArray<infer O> ? O :
-  // T extends StateTable<infer O> ? O :
-  // T extends StateObject<infer O> ? O : never;
-
-
-  // type KeyAccessType<T, P> =
-  //   T extends StateArray<infer O> ? O :
-  //   T extends StateObjectArray<infer O> ? O :
-  //   T extends StateTable<infer O> ? O :
-  //   P extends keyof T ? T[P] : never;
-
-  // type Keys<T> =
-  // T extends StateTable<infer O> ? IdType<O> :
-  // T extends StateArray<infer O> ? number :
-  // T extends StateObjectArray<infer O> ? number :
-  // keyof T;
-
 // usage : StateObject<T> extends stateBaseMixin(T)
 export type Constructor<T = {}> = new (...args: any[]) => T;
 export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
 
-  // type ConstructorType<C> = C extends new (...args: any[]) => infer O ? O : never;
-  // type T = ConstructorType<Ctor>;
-
-    // type Wrapped =
-  //   T extends StateArray<infer O> ? O :
-  //   T extends StateObjectArray<infer O> ? O :
-  //   T extends StateTable<infer O> ? O :
-  //   T extends StateObject<infer O> ? O : never;
 
   type ThisKeyAccessType<P> = KeyAccessType<T, P>;
   type ThisKeys = Keys<T>;
 
-
-  // type ThisKeyAccessType<P> =
-  //   T extends StateArray<infer O> ? O :
-  //   T extends StateObjectArray<infer O> ? O :
-  //   T extends StateTable<infer O> ? O :
-  //   P extends keyof Wrapped ? Wrapped[P] : never;
-
-  // type Keys =
-
-  // T extends StateTable<infer O> ? IdType<O> :
-  // T extends StateArray<infer O> ? O :
-  // T extends StateObjectArray<infer O> ? O :
-  // keyof Wrapped;
-
-  //   T extends Map<infer I, any> ? I :
-  //   // T extends Map<string, any> ? string :
-  //   // T extends Map<any, any> ? string :
-  //   T extends Array<any> ? number :
-  //   T extends any[] ? number :
-  //   keyof T;
-
+  type ThisProps = StatePropIdentifiers<T>;
 
   return class StateBaseClass extends wrapped {
 
@@ -133,7 +64,6 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
     }
 
     _parent: any | null = null;
-    // _props: StatePropIdentifiers<T> = null as any;
     _props: StatePropIdentifiers<T> = null as any;
 
     _subscribers: {
@@ -183,22 +113,27 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
       })
     }
 
-    _subscribe(listener: (value: this, updatedKey: ThisKeys) => void): () => void;
-    _subscribe<K extends ThisKeys>(propOrId: K, listener: (value: ThisKeyAccessType<K>, updatedKey: ThisKeys) => void): () => void;
-    _subscribe(arg1: any, arg2?: any): () => void {
-      if (arg2 === undefined) {
-        let listener = arg1 as ((value: this, key: ThisKeys) => void);
-        this._thisSubscribers.push(listener);
-        return () => _.remove(this._thisSubscribers, s => s === listener);
-      }
-      else {
-        let propOrId = arg1 as ThisKeys;
-        let listener = arg2 as () => void;
-        this._subscribers[propOrId as string] ||= [];
-        let subs = this._subscribers[propOrId as string] as ((value: this, key: ThisKeys) => void)[];
-        subs?.push(listener);
-        return () => { if (subs) _.remove(subs, s => s === listener); };
-      }
+    _subscribe(listener: (value: this, updatedKey: ThisKeys) => void): () => void {
+      this._thisSubscribers.push(listener);
+      return () => _.remove(this._thisSubscribers, s => s === listener);
+    }
+
+    _subscribeKey<K extends ThisKeys>(
+      key: K,
+      listener: (value: ThisKeyAccessType<K>, updatedKey: ThisKeys) => void
+    ): () => void {
+      this._subscribers[key as string] ||= [];
+      let subs = this._subscribers[key as string] as ((value: ThisKeyAccessType<K>, key: ThisKeys) => void)[];
+      subs?.push(listener);
+      return () => { if (subs) _.remove(subs, s => s === listener); };
+    }
+
+    _subscribeKeys(
+      keys: ThisKeys[],
+      listener: (value: this, updatedKey: ThisKeys) => void
+    ): () => void {
+      let disposers = keys.map(k => this._subscribeKey(k, (v: any, updatedKey: ThisKeys) => listener(this, updatedKey)));
+      return () => disposers.forEach(f => f());
     }
 
     _get<P extends ThisKeys>(prop: P): ThisKeyAccessType<P> { return (this as any)[prop]; }
@@ -282,7 +217,16 @@ export interface StateBaseInterface<T> {
   _subscribeSelector<R>(selector: (t: this) => R, compute: (selected: R) => void): void;
 
   _subscribe(listener: (value: this, updatedKey: Keys<T>) => void): () => void;
-  _subscribe<K extends Keys<T>>(propOrId: K, listener: (value: KeyAccessType<T, K>, updatedKey: Keys<T>) => void): () => void;
+
+  _subscribeKey<K extends Keys<T>>(
+    key: K,
+    listener: (value: KeyAccessType<T, K>, updatedKey: Keys<T>) => void
+  ): () => void;
+
+  _subscribeKeys(
+    keys: Keys<T>[],
+    listener: (value: this, updatedKey: Keys<T>) => void
+  ): () => void;
 
 
   _get<P extends Keys<T>>(prop: P): KeyAccessType<T, P>;

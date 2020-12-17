@@ -39,8 +39,8 @@ test('subscribe on table', () => {
   let called2 = false;
   state.todos.insert({ id: "1", description: "test", nullable: 23 });
 
-  state._subscribe("todos", () => called2 = true)
-  state.todos._subscribe("1", todo => {
+  state._subscribeKey("todos", () => called2 = true)
+  state.todos._subscribeKey("1", todo => {
     expect(todo.nullable).toBe(12);
     called = true;
   });
@@ -65,7 +65,7 @@ test('subscribe-table-insert-remove', () => {
   // state.todos._subscribe(() =>
   //   called++
   // );
-  state._subscribe("todos", () =>
+  state._subscribeKey("todos", () =>
     called++
   );
 
