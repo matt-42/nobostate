@@ -26,7 +26,7 @@ test('subscribers-with-key', () => {
     (s: any, prop: any) => {
       expect(prop).toBe("table");
     },
-    () => state.table.insert({id : 1, test: 0})
+    () => state.table.insert({id : 2, test: 0})
   );
   // state
   subscribeTest(state,

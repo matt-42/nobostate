@@ -21,6 +21,8 @@ test('table-insert-remove', () => {
   state.todos.insert({ id: "1", description: "test", nullable: 23 });
   expect(state.todos.size).toBe(1);
 
+  expect(() => state.todos.insert({ id: "1", description: "test", nullable: 23 })).toThrowError();
+
   // state.todos[1]
   let todo = state.todos.assertGet("1");
   expect(todo.id).toEqual("1");

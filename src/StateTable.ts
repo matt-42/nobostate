@@ -73,8 +73,10 @@ export function stateTableMixin<T extends HasId<any>>() {
           value = {...value, id: id.toString() };
         }
 
+        if (this.has(value.id))
+          throw new Error(`table ${this._props._path.join('.')} with id ${value.id} already exists`);
         let elt = anyStateObject() as any as StateObject<T>;
-        elt = _.assign(elt, value);
+        elt._update(value);
 
         let id = elt.id;
         this._registerChild(id, elt);

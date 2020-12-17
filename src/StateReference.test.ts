@@ -199,10 +199,13 @@ test('check-multiple-owner', () => {
     });
 
   let obj = state.table1.insert({ id: "42", text: "xxx" });
-  let objWithRef = state.table2.insert({ id: "1", ref: stateReference<Test>(obj)});
-  
+  let obj1 = state.table1.insert({ id: "43", text: "xxx" });
+  let objWithRef = state.table2.insert({ id: "1", ref: stateReference<Test>(obj) });
+
   // state.table2.insert({ id: "2", ref: stateReference<Test>(obj)});
-  expect(() => state.table2.insert({ id: "2", ref: stateReference<Test>(obj)})).toThrowError();
+  expect(() => state.table2.insert({ id: "2", ref: stateReference<Test>(obj) })).toThrowError();
+  
+  state.table2.insert({ id: "3", ref: stateReference<Test>(obj1) });
 
 });
 
@@ -227,7 +230,7 @@ test('back-reference', () => {
   expect(br.id === objWithRef.id).toBe(true);
   expect(br.x === objWithRef.x).toBe(true);
   // expect(br === objWithRef).toBe(true);
-  
+
   objWithRef.ref._set(null);
   expect(obj._backReferences(state._props.table2.ref).length).toBe(0);
 
