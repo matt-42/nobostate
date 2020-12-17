@@ -39,6 +39,12 @@ type KeyAccessType<T, P> =
   T extends Map<any, infer O> ? O :
   P extends keyof T ? T[P] : never;
 
+type KeyAccessTypeWithNull<T, P> =
+  T extends (infer O)[] ? O | null :
+  T extends Array<infer O> ? O | null:
+  T extends Map<any, infer O> ? O | null:
+  P extends keyof T ? T[P] : never;
+
 type Keys<T> =
   T extends Map<infer I, any> ? I :
   T extends Array<any> ? number :
@@ -52,8 +58,7 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
 
   type ThisKeyAccessType<P> = KeyAccessType<T, P>;
   type ThisKeys = Keys<T>;
-
-  type ThisProps = StatePropIdentifiers<T>;
+  type ThisKeyAccessTypeWithNull<P> = KeyAccessTypeWithNull<T, P>;
 
   return class StateBaseClass extends wrapped {
 
@@ -165,9 +170,8 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
       }
     }
 
-    _use(): this;
-    _use<K extends ThisKeys>(prop: K): ThisKeyAccessType<K>;
-    _use(prop?: any): any { return useNoboState(this, prop); }
+    _use(): this { return useNoboState(this); }
+    _useKey<K extends ThisKeys>(prop: K): ThisKeyAccessTypeWithNull<K> { return useNoboState(this, prop); }
 
     /**
      * Refresh everytime selector return a different value.
@@ -239,7 +243,7 @@ export interface StateBaseInterface<T> {
   _registerChild<P extends Keys<T>>(propOrId: P, child: KeyAccessType<T, P>): void;
 
   _use(): this;
-  _use<K extends Keys<T>>(prop: K): KeyAccessType<T, K>;
+  _useKey<K extends Keys<T>>(prop: K): KeyAccessTypeWithNull<T, K>;
 
   /**
    * Refresh everytime selector return a different value.
