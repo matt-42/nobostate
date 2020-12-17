@@ -5,6 +5,18 @@ import { newStringId } from "./StateTable";
 
 type Test = { id: string, text: string };
 
+test('ref-must-have-specs', () => {
+  let state = createState({
+    table1: stateTable<Test>(),
+    table2: stateTable<{ id: string, ref: StateReference<Test> }>(),
+  });
+
+
+  state.table1.insert({ id: "1", text: "xxx" });
+  expect(() => state.table2.insert({ id: "1", ref: stateReference<Test>("1") })).toThrowError();
+
+});
+
 test('ref-change-listening', () => {
   let state = createState({
     table1: stateTable<Test>(),

@@ -65,17 +65,17 @@ export function createPropIds<T>(options_?: { path: string[], getNextId: () => n
     path: [], getNextId: () => { return cpt++; }
   }
 
-  let target: TablePropSpec<any> = {
+  let target: PropSpec = {
     _path: options.path,
     _propId: options.getNextId(),
     _undoIgnore: false,
-    _foreignKeys: []
-  } as any;
+  };
 
   return new Proxy(target, {
     get: (target: any, prop, receiver) => {
       let sprop = prop as string;
-      if (target[sprop] !== undefined)
+      // console.log(`get ${sprop} `)
+      if (target[sprop] !== undefined || (typeof sprop === "string" && sprop.startsWith('_')))
         return target[sprop];
       else {
         // console.log("create prop", sprop);
