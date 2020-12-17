@@ -107,7 +107,14 @@ test('reference-array-remove', () => {
   obj.refs.remove(o => o.id === "42");
   expect(obj.refs.length).toBe(1);
   expect(obj.refs[0].id).toBe("43");
-  
+
+  obj.refs.push("42");
+  expect(obj.refs.length).toBe(2);
+
+  state.table1.remove("42");
+  expect(obj.refs.length).toBe(1);
+  expect(obj.refs[0].id).toBe("43");
+
 });
 
 test('reference-array-undo-push', () => {
@@ -140,6 +147,47 @@ test('reference-array-undo-push', () => {
 
   // state.table2.remove("1");
   // expect(state.table2.size).toBe(0);
+});
+
+
+
+test('reference-array-back-reference', () => {
+
+  let state = createState({
+    table1: stateTable<Test>(),
+    table2: stateTable<{ id: string, refs: StateReferenceArray<Test> }>(),
+  },
+    {
+      setSpecs: (props, specs) => {
+        specs.referenceArray(props.table2.refs, props.table1);
+      }
+    });
+
+  let a = state.table1.insert({ id: "42", text: "a" });
+  let b = state.table1.insert({ id: "43", text: "b" });
+  let c = state.table1.insert({ id: "44", text: "c" });
+  state.table2.insert({ id: "1", refs: stateReferenceArray<Test>(["42", "43"]) });
+  state.table2.insert({ id: "2", refs: stateReferenceArray<Test>(["43"]) });
+
+  let bra = a._backReferences(state.table2._props.refs);
+  let brb = b._backReferences(state.table2._props.refs);
+  
+  expect(bra.length).toBe(1);
+  expect(brb.length).toBe(2);
+
+  expect(brb[0].id).toBe("1");
+  expect(brb[1].id).toBe("2");
+
+  expect(bra[0].id).toBe("1");
+
+  state.table2.remove("1");
+
+  bra = a._backReferences(state.table2._props.refs);
+  brb = b._backReferences(state.table2._props.refs);
+
+  expect(bra.length).toBe(0);
+  expect(brb.length).toBe(1);
+
 });
 
 

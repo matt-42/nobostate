@@ -1,12 +1,13 @@
 import _ from "lodash";
 import { NoboHistory } from "./history";
 import { propagatePropIds, PropSpec } from "./prop";
-import { anyStateObject, createProxy, StateObject, stateObjectMixin } from "./StateObjectImpl";
+import { anyStateObject, createProxy, StateObject, stateObjectMixin } from "./StateObject";
 import { revive, reviveReferences } from "./unwrap_revive";
 import { updateState } from "./updateState";
 
 
-export class RootStateImpl extends stateObjectMixin<{}>() {
+export class RootStateImpl<T> extends stateObjectMixin<{}>() {
+  
   _history = new NoboHistory();
 
   _load(data: any) {
@@ -18,7 +19,7 @@ export class RootStateImpl extends stateObjectMixin<{}>() {
 
 }
 
-export type RootState<T> = StateObject<T> & RootStateImpl;
+export type RootState<T> = StateObject<T> & RootStateImpl<T>;
 
 export function makeRootState<T>(state: T, propId: PropSpec): RootState<T> {
 

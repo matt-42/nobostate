@@ -11,10 +11,10 @@
  * @param ignoreProps 
  */
 
-import { StateArray, stateArrayMixin, StateObjectArray } from "./array";
+import { StateArray, stateArrayMixin, StateObjectArray } from "./StateArray";
 import { stateArray, stateObject, stateObjectArray, stateTable } from "./nobostate";
-import { stateBaseMixin } from "./StateBaseClass";
-import { StateObject, stateObjectMixin } from "./StateObjectImpl";
+import { stateBaseMixin } from "./StateBase";
+import { StateObject, stateObjectMixin } from "./StateObject";
 import { StateReference, stateReference, StateReferenceImpl } from "./StateReference";
 import { stateReferenceArray, stateReferenceArrayMixin } from "./StateReferenceArray";
 import { StateTable, stateTableMixin } from "./StateTable";

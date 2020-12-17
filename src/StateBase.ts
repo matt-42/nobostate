@@ -1,8 +1,11 @@
 import _ from "lodash";
-import { useEffect, useState } from "react";
+import { Key, useEffect, useState } from "react";
+import { StateArray, StateArrayInterface, StateObjectArray } from "./StateArray";
 import { NoboHistory } from "./history";
 import { propagatePropIds, PropSpec, StatePropIdentifiers } from "./prop";
 import { RootState } from "./RootState";
+import { StateObject } from "./StateObject";
+import { IdType, StateTable } from "./StateTable";
 import { updateState } from "./updateState";
 
 
@@ -52,6 +55,37 @@ export type ObjectPropsKeys<T> = {
 }[keyof T];
 
 
+type KeyAccessType<T, P> =
+  T extends (infer O)[] ? O :
+  T extends Array<infer O> ? O :
+  T extends Map<any, infer O> ? O :
+  P extends keyof T ? T[P] : never;
+
+type Keys<T> =
+  T extends Map<infer I, any> ? I :
+  T extends Array<any> ? number :
+  T extends any[] ? number :
+  keyof T;
+
+  // type UnwrapStateType<T> = 
+  // T extends StateArray<infer O> ? O :
+  // T extends StateObjectArray<infer O> ? O :
+  // T extends StateTable<infer O> ? O :
+  // T extends StateObject<infer O> ? O : never;
+
+
+  // type KeyAccessType<T, P> =
+  //   T extends StateArray<infer O> ? O :
+  //   T extends StateObjectArray<infer O> ? O :
+  //   T extends StateTable<infer O> ? O :
+  //   P extends keyof T ? T[P] : never;
+
+  // type Keys<T> =
+  // T extends StateTable<infer O> ? IdType<O> :
+  // T extends StateArray<infer O> ? number :
+  // T extends StateObjectArray<infer O> ? number :
+  // keyof T;
+
 // usage : StateObject<T> extends stateBaseMixin(T)
 export type Constructor<T = {}> = new (...args: any[]) => T;
 export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
@@ -59,19 +93,35 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
   // type ConstructorType<C> = C extends new (...args: any[]) => infer O ? O : never;
   // type T = ConstructorType<Ctor>;
 
-  type KeyAccessType<P> =
-    T extends (infer O)[] ? O :
-    T extends Array<infer O> ? O :
-    T extends Map<any, infer O> ? O :
-    P extends keyof T ? T[P] : never;
+    // type Wrapped =
+  //   T extends StateArray<infer O> ? O :
+  //   T extends StateObjectArray<infer O> ? O :
+  //   T extends StateTable<infer O> ? O :
+  //   T extends StateObject<infer O> ? O : never;
 
-  type Keys =
-    T extends Map<infer I, any> ? I :
-    // T extends Map<string, any> ? string :
-    // T extends Map<any, any> ? string :
-    T extends Array<any> ? number :
-    T extends any[] ? number :
-    keyof T;
+  type ThisKeyAccessType<P> = KeyAccessType<T, P>;
+  type ThisKeys = Keys<T>;
+
+
+  // type ThisKeyAccessType<P> =
+  //   T extends StateArray<infer O> ? O :
+  //   T extends StateObjectArray<infer O> ? O :
+  //   T extends StateTable<infer O> ? O :
+  //   P extends keyof Wrapped ? Wrapped[P] : never;
+
+  // type Keys =
+
+  // T extends StateTable<infer O> ? IdType<O> :
+  // T extends StateArray<infer O> ? O :
+  // T extends StateObjectArray<infer O> ? O :
+  // keyof Wrapped;
+
+  //   T extends Map<infer I, any> ? I :
+  //   // T extends Map<string, any> ? string :
+  //   // T extends Map<any, any> ? string :
+  //   T extends Array<any> ? number :
+  //   T extends any[] ? number :
+  //   keyof T;
 
 
   return class StateBaseClass extends wrapped {
@@ -87,12 +137,12 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
     _props: StatePropIdentifiers<T> = null as any;
 
     _subscribers: {
-      [K: string]: ((value: any, key: Keys) => void)[];
+      [K: string]: ((value: any, key: ThisKeys) => void)[];
     } = {};
-    _thisSubscribers: ((value: this, key: Keys) => void)[] = [];
+    _thisSubscribers: ((value: this, key: ThisKeys) => void)[] = [];
     _parentListener: (() => void) | null = null;
 
-    _onChange(listener: ((value: this, key: Keys) => void)) {
+    _onChange(listener: ((value: this, key: ThisKeys) => void)) {
       this._thisSubscribers.push(listener);
       return () => {
         if (_.remove(this._thisSubscribers, l => l === listener).length !== 1)
@@ -133,42 +183,42 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
       })
     }
 
-    _subscribe(listener: (value: this, updatedKey: Keys) => void): () => void;
-    _subscribe<K extends Keys>(propOrId: K, listener: (value: KeyAccessType<K>, updatedKey: Keys) => void): () => void;
+    _subscribe(listener: (value: this, updatedKey: ThisKeys) => void): () => void;
+    _subscribe<K extends ThisKeys>(propOrId: K, listener: (value: ThisKeyAccessType<K>, updatedKey: ThisKeys) => void): () => void;
     _subscribe(arg1: any, arg2?: any): () => void {
       if (arg2 === undefined) {
-        let listener = arg1 as ((value: this, key: Keys) => void);
+        let listener = arg1 as ((value: this, key: ThisKeys) => void);
         this._thisSubscribers.push(listener);
         return () => _.remove(this._thisSubscribers, s => s === listener);
       }
       else {
-        let propOrId = arg1 as Keys;
+        let propOrId = arg1 as ThisKeys;
         let listener = arg2 as () => void;
         this._subscribers[propOrId as string] ||= [];
-        let subs = this._subscribers[propOrId as string] as ((value: this, key: Keys) => void)[];
+        let subs = this._subscribers[propOrId as string] as ((value: this, key: ThisKeys) => void)[];
         subs?.push(listener);
         return () => { if (subs) _.remove(subs, s => s === listener); };
       }
     }
 
-    _get<P extends Keys>(prop: P): KeyAccessType<P> { return (this as any)[prop]; }
-    _set<P extends Keys>(prop: P, value: KeyAccessType<P>) {
+    _get<P extends ThisKeys>(prop: P): ThisKeyAccessType<P> { return (this as any)[prop]; }
+    _set<P extends ThisKeys>(prop: P, value: ThisKeyAccessType<P>) {
       updateState(this, prop, value);
     }
 
     // A prop has been updated.
     // notify subscribers and the parent.
-    _notifySubscribers<P extends Keys>(propOrId: P, value: KeyAccessType<P>) {
-      this._subscribers[propOrId as string]?.forEach(sub => sub(this._get(propOrId), propOrId));
-      this._thisSubscribers.forEach(sub => sub(this, propOrId));
+    _notifySubscribers<P extends ThisKeys>(propOrId: P, value: ThisKeyAccessType<P>) {
+      [...this._subscribers[propOrId as string] || []].forEach(sub => sub(this._get(propOrId), propOrId));
+      [...this._thisSubscribers].forEach(sub => sub(this, propOrId));
       this._parentListener?.();
     }
-    _notifyThisSubscribers<P extends Keys>() {
+    _notifyThisSubscribers<P extends ThisKeys>() {
       this._parentListener?.();
-      this._thisSubscribers.forEach(sub => sub(this, null as any));
+      [...this._thisSubscribers].forEach(sub => sub(this, null as any));
     }
 
-    _registerChild<P extends Keys>(propOrId: P, child: KeyAccessType<P>) {
+    _registerChild<P extends ThisKeys>(propOrId: P, child: ThisKeyAccessType<P>) {
       if ((child as any)._isStateBase) {
         let childBase = child as StateBaseClass;
         // when a child prop change.
@@ -181,7 +231,7 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
     }
 
     _use(): this;
-    _use<K extends Keys>(prop: K): KeyAccessType<K>;
+    _use<K extends ThisKeys>(prop: K): ThisKeyAccessType<K>;
     _use(prop?: any): any { return useNoboState(this, prop); }
 
     /**
@@ -208,17 +258,6 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
   }
 }
 
-type KeyAccessType<T, P> =
-  T extends (infer O)[] ? O :
-  T extends Array<infer O> ? O :
-  T extends Map<any, infer O> ? O :
-  P extends keyof T ? T[P] : never;
-
-type Keys<T> =
-  T extends Map<infer I, any> ? I :
-  T extends Array<any> ? number :
-  T extends any[] ? number :
-  keyof T;
 
 export interface StateBaseInterface<T> {
   _isStateBase: boolean;
@@ -233,7 +272,7 @@ export interface StateBaseInterface<T> {
   _thisSubscribers: ((value: any, key: Keys<T>) => void)[];
   _parentListener: (() => void) | null;
 
-  _onChange(listener: ((value: this, key: Keys<T>) => void)) : (() => void);
+  _onChange(listener: ((value: this, key: Keys<T>) => void)): (() => void);
 
   _setProps(props: PropSpec): void;
   _getRootState(): { _history: NoboHistory; };

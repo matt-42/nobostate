@@ -1,23 +1,23 @@
-import { StateArray, stateArrayMixin, StateObjectArray, stateObjectArrayMixin } from "./array";
+import { StateArray, stateArrayMixin, StateObjectArray, stateObjectArrayMixin } from "./StateArray";
 import { createPropIds, ReferenceSpec, PropSpec, StatePropIdentifiers, TablePropSpec } from "./prop";
 import { makeRootState, RootState } from "./RootState";
-import { StateBaseInterface } from "./StateBaseClass";
+import { StateBaseInterface } from "./StateBase";
 import { StateReference, StateReferenceNotNull } from "./StateReference";
-import { createProxy, StateObject, stateObjectMixin } from "./StateObjectImpl";
+import { createProxy, StateObject, stateObjectMixin } from "./StateObject";
 import { HasId, IdType, StateTable, stateTableMixin } from "./StateTable";
 
 
-type ReadOnly<T> =
-  T extends Array<any> ? T :
-  T extends Object ? {
-    readonly [P in keyof T]: T[P] extends Function ? T[P] : ReadOnly<T[P]>;
-  } : T;
+// type ReadOnly<T> =
+//   T extends Array<any> ? T :
+//   T extends Object ? {
+//     readonly [P in keyof T]: T[P] extends Function ? T[P] : ReadOnly<T[P]>;
+//   } : T;
 
-type ReadOnlyNonStateTypes<T> =
-  T extends StateBaseInterface<infer O> ? O :
-  T extends Object ? {
-    readonly [P in keyof T]: T[P] extends Function ? T[P] : ReadOnly<T[P]>;
-  } : T;
+// type ReadOnlyNonStateTypes<T> =
+//   T extends StateBaseInterface<infer O> ? O :
+//   T extends Object ? {
+//     readonly [P in keyof T]: T[P] extends Function ? T[P] : ReadOnly<T[P]>;
+//   } : T;
 
 
 export const stateObject = <T>(data: T) =>

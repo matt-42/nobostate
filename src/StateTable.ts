@@ -1,11 +1,11 @@
 import _ from "lodash";
-import { StateArray } from "./array";
+import { StateArray } from "./StateArray";
 import { HistoryTableAction } from "./history";
 import { stateObject } from "./nobostate";
 import { propagatePropIds, TablePropSpec } from "./prop";
-import { Constructor, StateBaseInterface, stateBaseMixin } from "./StateBaseClass";
+import { stateBaseMixin, StateBaseInterface } from "./StateBase";
+import { StateObject, anyStateObject } from "./StateObject";
 import { StateReference } from "./StateReference";
-import { anyStateObject, StateObject, stateObjectMixin } from "./StateObjectImpl";
 import { unwrapState, revive } from "./unwrap_revive";
 import { updateState } from "./updateState";
 
@@ -26,7 +26,7 @@ export function stateTableMixin<T extends HasId<any>>() {
   type Id = IdType<T>;
   type MapType = Map<Id, StateObject<T>>;
 
-  return class StateTableImpl extends stateBaseMixin<Map<Id, StateObject<T>>, typeof Map>(Map) {
+  return class StateTableImpl extends stateBaseMixin<MapType, typeof Map>(Map) {
 
     _isStateTable = true;
     _lastInsertId: IdType<T> | null = null;
@@ -85,14 +85,14 @@ export function stateTableMixin<T extends HasId<any>>() {
         this._notifySubscribers(id, elt);
         // console.log(this._getRootState());
         // console.log(this._getRootState()._history);
-        this._insertListeners.forEach(f => f(elt));
+        [...this._insertListeners].forEach(f => f(elt));
 
         const history = this._getRootState()._history;
         if (history && this._props)
           history.push({
             action: "insert",
             propId: this._props,
-            target: this,
+            target: this as any,
             element: elt
           } as HistoryTableAction);
 
@@ -155,9 +155,11 @@ export function stateTableMixin<T extends HasId<any>>() {
       this._getRootState()._history.group(`remove-${this._props._path.join('-')}-${id}`, () => {
 
         let eltToDelete = this.assertGet(id);
-        eltToDelete._removeListeners.forEach((f: any) => f(eltToDelete));
+        // call the on delete listeners.
+        // clone the array because listeners can remove themselves from the array, breaking foreack.
+        [...eltToDelete._removeListeners].forEach((f: any) => f(eltToDelete));
 
-        this._thisSubscribers.forEach(f => f(this, id));
+        [...this._thisSubscribers].forEach(f => f(this, id));
         this._parentListener?.();
 
         // this._insertListeners.forEach(f => f(eltToDelete._wrapped));
@@ -166,7 +168,7 @@ export function stateTableMixin<T extends HasId<any>>() {
         this._getRootState()._history.push({
           action: "remove",
           propId: this._props,
-          target: this,
+          target: this as any,
           element: eltToDelete
         } as HistoryTableAction);
       });

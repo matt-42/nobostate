@@ -135,6 +135,8 @@ test('new-table-id', () => {
     table2: stateTable<{id: number}>(),
   });
 
+  state._props.table1.id;
+
   let obj1 = state.table1.insert({id: newStringId() });
   let obj2 = state.table1.insert({id: newStringId() });
   expect(obj1.id).toBe("1");

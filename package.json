@@ -27,6 +27,6 @@
     "build": "rm ./dist/* && tsc && uglifyjs ./dist/*.js  --compress --mangle -o ./dist/nobostate.min.js  --source-map   &&  GZIP=-9 tar cvzf ./dist/nobostate.min.gz ./dist/*.min.js && ls -lha ./dist/*.min.*",
     "alltests": "jest",
     "specifictest": "jest -t subscribers-with-key ./src/StateBaseClass.test.ts",
-    "specifictest2": "jest -t  reference-undo"
+    "specifictest2": "jest -t foreign-key-cascade"
   }
 }

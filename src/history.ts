@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { StateArray } from "./array";
+import { StateArray } from "./StateArray";
 import { PropSpec } from "./prop";
 import { HasId, StateTable } from "./StateTable";
 

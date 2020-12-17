@@ -36,7 +36,7 @@ test('subscribers-with-key', () => {
 
   subscribeTest(state.table.assertGet(1),
     (s: any, prop: any) => expect(prop).toBe("test"),
-    () => state.table.assertGet(1).test = 2
+    () => state.table.assertGet(1).test = 3
   );
 
   subscribeTest(state.array,

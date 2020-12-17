@@ -1,6 +1,6 @@
 import { ReferenceSpec, PropSpec } from "./prop";
-import { stateBaseMixin } from "./StateBaseClass";
-import { StateObject } from "./StateObjectImpl";
+import { stateBaseMixin } from "./StateBase";
+import { StateObject } from "./StateObject";
 import { HasId, IdType, StateTable } from "./StateTable";
 
 
@@ -50,8 +50,10 @@ export class StateReferenceImpl<T extends HasId<any>>
   _isStateReference = true;
 
   _referencedObject: StateObject<T> | null = null;
-  _disposeReferencedOnDelete: (() => void) | null = null;
+  _disposeRefOnDelete: (() => void) | null = null;
   _disposeRefOnChange: (() => void) | null = null;
+  _disposeBackReference: (() => void) | null = null;
+
   _refToInitialize: IdType<T> | T | null = null;
 
   _previousSetArgument: IdType<T> | T | null = null;
@@ -62,16 +64,33 @@ export class StateReferenceImpl<T extends HasId<any>>
   }
 
   _setProps(props: PropSpec) {
+    if ((props as ReferenceSpec<any, any>)._ref === undefined) {
+      throw Error(`Unspecified reference ${props._path.join('.')}:
+      Use specs.reference(props.${props._path.join('.')}, dstTable, options) to specify it.`);
+    }
     super._setProps(props);
 
     this._parent._onDelete(() => {
-      if (this._specs()._own)
+      
+      if (this._specs()._own) {
         // remove ref when the parent stateobject is deleted.
         this._removeReferencedObject();
+      }
+
+      this._disposeReference();
     })
     this._set(this._refToInitialize);
     this._refToInitialize = null;
   }
+  _disposeReference() {
+    this._disposeRefOnDelete?.();
+    this._disposeRefOnChange?.();
+    this._disposeBackReference?.();
+    this._disposeBackReference = null;
+    this._disposeRefOnDelete = null;
+    this._disposeRefOnChange = null;
+  }
+
   _specs(): ReferenceSpec<any, any> {
     let specs = this._props as ReferenceSpec<any, any>;
     if (!specs) throw new Error();
@@ -97,11 +116,7 @@ export class StateReferenceImpl<T extends HasId<any>>
       throw new Error("Cannot set a reference on a object unattached to any root state.");
 
     // Stop listening to previous ref onDelete.
-    this._disposeReferencedOnDelete?.();
-    this._disposeRefOnChange?.();
-
-    this._disposeReferencedOnDelete = null;
-    this._disposeRefOnChange = null;
+    this._disposeReference();
 
     // Do not record in history the insert/remove of the referenced object.
     this._getRootState()._history.ignore(() => {
@@ -123,6 +138,9 @@ export class StateReferenceImpl<T extends HasId<any>>
 
     });
 
+    if (this._referencedObject)
+      this._disposeBackReference = this._referencedObject._addBackReference(this._specs(), this._parent);
+
     let prev = this._previousSetArgument;
     this._getRootState()._history.push({
       action: "anyAction",
@@ -139,7 +157,7 @@ export class StateReferenceImpl<T extends HasId<any>>
 
     // Set on delete behaviors.
     if (this._referencedObject) {
-      this._disposeReferencedOnDelete = this._referencedObject._onDelete(() => {
+      this._disposeRefOnDelete = this._referencedObject._onDelete(() => {
         let spec = this._specs();
         if (spec._onRefDeleted === "set-null") // SET NULL
           this._referencedObject = null;

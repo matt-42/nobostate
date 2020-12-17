@@ -70,12 +70,12 @@ test('foreign-key-cascade', () => {
   state.table1.insert({ id: "1", text: "xxx" });
   state.table1.insert({ id: "2", text: "xxx" });
 
-  state.table2.insert({ id: "1", ref: stateReference<Test>("1") });
+  let obj1 = state.table2.insert({ id: "1", ref: stateReference<Test>("1") });
   state.table2.insert({ id: "2", ref: stateReference<Test>("1") });
   state.table2.insert({ id: "3", ref: stateReference<Test>("2") });
 
-  expect(state.table2.assertGet("1").ref.id).toBe("1");
-  expect(state.table2.assertGet("1").ref.text).toBe("xxx");
+  expect(obj1.ref.id).toBe("1");
+  expect(obj1.ref.text).toBe("xxx");
 
   state.table1.remove("1");
   expect(state.table2.size).toBe(1);
@@ -185,32 +185,39 @@ test('reference-undo', () => {
 
 });
 
-// test('reference-many', () => {
-
-//   let state = createState({
-//     table1: stateTable<Test>(),
-//     table2: stateTable<{ id: string, refs: StateReferenceArray<Test>, x: number }>(),
-//   },
-//     {
-//       setSpecs: (props, specs) => {
-//         specs.referenceArray(props.table2.refs, props.table1, {
-//           own: true,
-//           onRefDeleted: (obj, )
-//         });
-//       }
-//     });
-
-//   state.table1.insert({ id: "42", text: "a" });
-//   state.table1.insert({ id: "43", text: "b" });
-//   state.table2.insert({ id: "1", refs: stateReferenceArray<Test>(["42", "43"]), x: 0 });
-
-//   expect(state.table2.get("1").refs[0].text).toBe("a");
-//   expect(state.table2.get("1").refs[1].text).toBe("b");
-
-//   state.table2.remove("1");
-//   expect(state.table2.size).toBe(0);
-//   expect(state.table1.size).toBe(0);
-// });
 
 
+
+test('back-reference', () => {
+
+  let state = createState({
+    table1: stateTable<Test>(),
+    table2: stateTable<{ id: string, ref: StateReference<Test>, x: number }>(),
+  },
+    {
+      setSpecs: (props, specs) => {
+        specs.reference(props.table2.ref, props.table1, { own: false });
+      }
+    });
+
+  let obj = state.table1.insert({ id: "42", text: "xxx" });
+  let objWithRef = state.table2.insert({ id: "1", ref: stateReference<Test>("42"), x: 34324 });
+
+  expect(obj._backReferences(state._props.table2.ref).length).toBe(1);
+
+  let br = obj._backReferences(state._props.table2.ref)[0];
+  expect(br.id === objWithRef.id).toBe(true);
+  expect(br.x === objWithRef.x).toBe(true);
+  // expect(br === objWithRef).toBe(true);
+  
+  objWithRef.ref._set(null);
+  expect(obj._backReferences(state._props.table2.ref).length).toBe(0);
+
+  objWithRef.ref._set("42");
+  expect(obj._backReferences(state._props.table2.ref).length).toBe(1);
+
+  state.table2.remove("1");
+  expect(obj._backReferences(state._props.table2.ref).length).toBe(0);
+
+});
 

@@ -1,8 +1,8 @@
 import { HistoryArrayAction } from "./history";
 import { stateObject } from "./nobostate";
 import { propagatePropIds } from "./prop";
-import { Constructor, StateBaseInterface, stateBaseMixin } from "./StateBaseClass";
-import { StateObject } from "./StateObjectImpl";
+import { Constructor, StateBaseInterface, stateBaseMixin } from "./StateBase";
+import { StateObject } from "./StateObject";
 import { updateState } from "./updateState";
 
 
@@ -102,7 +102,7 @@ type R = ReturnType<typeof stateArrayMixin>
 
 export function stateArrayMixin<T>() {
 
-  return class StateArray extends stateBaseMixin<T[], Constructor<T[]>>(Array as Constructor<T[]>)
+  return class StateArrayImpl extends stateBaseMixin<T[], Constructor<T[]>>(Array as Constructor<T[]>)
   {
     _isStateArray = true;
     push(...elements: T[]): number {
@@ -112,7 +112,7 @@ export function stateArrayMixin<T>() {
         this._getRootState()._history.push({
           action: "push",
           propId: this._props,
-          target: this,
+          target: this as any,
           element: elt
         } as HistoryArrayAction)
       });
@@ -165,11 +165,11 @@ export interface StateArrayInterface<T> extends StateBaseInterface<T[]> {
   copy(other: T[]): void;
 }
 
-export interface StateObjectArrayInterface<T> extends StateArrayInterface<StateObject<T>> {
+export interface StateObjectArrayInterface<T> extends StateArrayInterface<T> {
   _isStateObjectArray: boolean;
   push(...elements: T[]): number;
 }
 
 export type StateArray<T> = StateArrayInterface<T> & T[];
 export type StateObjectArray<T> = StateObjectArrayInterface<T> & StateObject<T>[];
-// export type StateArray<T> = StateObjectArrayInterface<T> & T[];
+

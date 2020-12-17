@@ -1,10 +1,10 @@
-import { StateArray, stateArrayMixin, StateObjectArray } from "./array";
-import { StateBaseInterface, stateBaseMixin } from "./StateBaseClass";
-import { StateReference } from "./StateReference";;
-import { StateObject, stateObjectMixin } from "./StateObjectImpl";
-import { StateTable, stateTableMixin } from "./StateTable";
+import { StateArray, StateObjectArray } from "./StateArray";
+import { StateBaseInterface } from "./StateBase";
+import { StateObject } from "./StateObject";
+import { StateReference } from "./StateReference";
 import { StateReferenceArray } from "./StateReferenceArray";
-import { createState, stateTable, stateArray, stateObjectArray } from "./nobostate";
+import { StateTable } from "./StateTable";
+;
 
 
 export type PropSpec = {
@@ -13,7 +13,7 @@ export type PropSpec = {
   _undoIgnore?: boolean,
 };
 export type ReferenceSpec<T, Parent> = PropSpec & {
-  _ref?: TablePropSpec<T>,
+  _ref: TablePropSpec<T>,
   _onRefDeleted: "cascade" | "set-null" | ((target: any, removeElement: any) => void),
   _own: boolean,
 
@@ -22,14 +22,36 @@ export type ReferenceSpec<T, Parent> = PropSpec & {
 export type TablePropSpec<T> = PropSpec & {
 } & { _: T };
 
+export type StatePropIdentifiers2<T, Parent = never> =
+  T extends StateReference<infer V> ? ReferenceSpec<V, Parent> :
+  T extends StateReferenceArray<infer V> ? ReferenceSpec<V, Parent> :
+  T extends StateObject<infer V> ? PropSpec & { [K in keyof V]: StatePropIdentifiers2<V[K], StateObject<V>> } :
+  T extends StateObjectArray<infer V> ? PropSpec & StatePropIdentifiers2<StateObject<V>> :
+  T extends StateArray<any> ? PropSpec :
+  T extends StateTable<infer V> ? TablePropSpec<V> & StatePropIdentifiers2<StateObject<V>> :
+  PropSpec;
+
 export type StatePropIdentifiers<T, Parent = never> =
   T extends StateReference<infer V> ? ReferenceSpec<V, Parent> :
   T extends StateReferenceArray<infer V> ? ReferenceSpec<V, Parent> :
-  T extends StateObject<infer V> ? PropSpec & { [K in keyof V]: StatePropIdentifiers<V[K], StateObject<V>> } :
-  T extends StateObjectArray<infer V> ? PropSpec & StatePropIdentifiers<StateObject<V>> :
+  T extends StateObject<infer V> ? PropSpec & { [K in keyof V]: StatePropIdentifiers2<V[K], StateObject<V>> } :
+  T extends StateObjectArray<infer V> ? PropSpec & StatePropIdentifiers2<StateObject<V>> :
   T extends StateArray<any> ? PropSpec :
-  T extends StateTable<infer V> ? TablePropSpec<V> & StatePropIdentifiers<StateObject<V>> :
-  PropSpec;
+  T extends StateTable<infer V> ? TablePropSpec<V> & StatePropIdentifiers2<StateObject<V>> :
+
+  T extends (infer O)[] ? PropSpec & StatePropIdentifiers2<StateObject<O>> :
+  T extends Array<infer O> ? PropSpec & StatePropIdentifiers2<StateObject<O>> :
+  T extends Map<any, infer O> ? TablePropSpec<O> & StatePropIdentifiers2<StateObject<O>>  :
+
+  PropSpec & { [K in keyof T]: StatePropIdentifiers2<T[K], StateObject<T>> };
+
+// T extends StateReference<infer V> ? ReferenceSpec<V, Parent> :
+// T extends StateReferenceArray<infer V> ? ReferenceSpec<V, Parent> :
+// T extends StateObject<infer V> ? PropSpec & { [K in keyof V]: StatePropIdentifiers<V[K], StateObject<V>> } :
+// T extends StateObjectArray<infer V> ? PropSpec & StatePropIdentifiers<StateObject<V>> :
+// T extends StateArray<any> ? PropSpec :
+// T extends StateTable<infer V> ? TablePropSpec<V> & StatePropIdentifiers<StateObject<V>> :
+// PropSpec;
 
 
 type X = StatePropIdentifiers<StateObject<{ x: number }>>

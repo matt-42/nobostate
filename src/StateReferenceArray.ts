@@ -1,19 +1,19 @@
 import _ from "lodash";
-import { StateObjectArray } from "./array";
+import { StateObjectArray } from "./StateArray";
 import { ReferenceSpec, PropSpec } from "./prop";
-import { stateBaseMixin } from "./StateBaseClass";
-import { StateObject } from "./StateObjectImpl";
+import { stateBaseMixin } from "./StateBase";
+import { StateObject } from "./StateObject";
 import { HasId, IdType, StateTable } from "./StateTable";
 
 
 export function stateReferenceArrayMixin<T extends HasId<any>>() {
 
-  return class StateReferenceArray
-    extends stateBaseMixin<StateObject<T>[], typeof Array>(Array) {
+  return class StateReferenceArrayImpl
+    extends stateBaseMixin<T[], typeof Array>(Array) {
 
     _isStateReferenceArray = true;
     _toInitialize: (IdType<T> | T)[];
-    _refsChangeListenersDispose = new Map<IdType<T>, (() => void)>();
+    _refDisposers = new Map<IdType<T>, (() => void)[]>();
 
     constructor(array: (IdType<T> | T)[]) {
       super();
@@ -21,7 +21,7 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
     }
 
     _specs(): ReferenceSpec<any, any> {
-      let specs = this._props as ReferenceSpec<any, any>;
+      let specs = this._props as any as ReferenceSpec<any, any>;
       if (!specs) throw new Error();
       return specs;
     }
@@ -34,11 +34,21 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
 
 
     _setProps(props: PropSpec) {
+      if ((props as ReferenceSpec<any, any>)._ref === undefined) {
+        throw Error(`Unspecified reference array ${props._path.join('.')}:
+        Use specs.referenceArray(props.${props._path.join('.')}, dstTable, options) to specify it.`);
+      }
+
       super._setProps(props);
 
       this._parent._onDelete(() => {
+        // dispose all refs.
+        for (let disposers of this._refDisposers.values())
+          disposers.forEach(f => f());
+
         if (this._specs()._own) {
-          // remove refs when the parent stateobject is deleted.
+
+          // remove refs when we own the ref and when the parent stateobject is deleted.
           this.forEach(ref => (ref._parent as StateTable<T>).remove(ref.id));
         }
       });
@@ -47,12 +57,22 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
       this._toInitialize.length = 0;
     }
 
+    clear() {
+      this.remove(() => true);
+    }
     remove(filter: (o: StateObject<T>) => boolean): StateObject<T>[] {
       let removed = _.remove(this, filter);
       for (let o of removed) {
-        let dispose = this._refsChangeListenersDispose.get(o.id);
-        if (!dispose) throw new Error();
-        dispose();
+
+        // dispose ref and clear disposers.
+        let disposers = this._refDisposers.get(o.id);
+        if (!disposers?.length) throw new Error();
+        disposers.forEach(f => f());
+        this._refDisposers.delete(o.id);
+
+        // remove the refd object if we own it.
+        if (this._specs()._own)
+          (o._parent as StateTable<T>).remove(o.id)
       }
       this._notifyThisSubscribers();
       return removed;
@@ -87,18 +107,25 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
             redo: () => this.push(elt)
           });
 
+          // Init disposers.
+          this._refDisposers.set(ref.id, []);
+          let refDisposer = this._refDisposers.get(ref.id);
+          if (!refDisposer) throw new Error();
+
+          // Add the back reference.
+          refDisposer.push(ref._addBackReference(this._specs(), this._parent));
+
           // Listen to change in ref.
-          if (ref)
-            this._refsChangeListenersDispose.set(ref.id, ref._onChange(() => this._notifyThisSubscribers()));
+          refDisposer.push(ref._onChange(() => this._notifyThisSubscribers()));
 
           // Setup on ref delete behaviors.
-          ref?._onDelete(() => {
+          refDisposer.push(ref._onDelete(() => {
             let spec = this._specs();
             _.remove(this, r => r === ref);
 
             if (typeof spec._onRefDeleted === "function") // CUSTOM CALLBACK.
               spec._onRefDeleted(this._parent, ref);
-          });
+          }));
 
 
         });
@@ -114,6 +141,7 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
 
 export type StateReferenceArray<T> = {
   _isStateReferenceArray: boolean;
+  clear(): void;
   remove(filter: (o: StateObject<T>) => boolean): StateObject<T>[];
   push(...elements: (IdType<T> | T)[]): number;
 

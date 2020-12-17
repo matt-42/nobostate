@@ -7,10 +7,10 @@
  */
 
 import _ from "lodash";
-import { copyStateArray, StateArray, stateArrayMixin } from "./array";
+import { copyStateArray, StateArray, stateArrayMixin } from "./StateArray";
 import { HistoryUpdatePropAction } from "./history";
 import { propagatePropIds } from "./prop";
-import { StateObject, stateObjectMixin } from "./StateObjectImpl";
+import { StateObject, stateObjectMixin } from "./StateObject";
 import { StateTable, stateTableMixin } from "./StateTable";
 
 export function updateState(dst: any, prop: any, src: any) {
@@ -70,7 +70,8 @@ export function updateState(dst: any, prop: any, src: any) {
         propagatePropIds(src, dst._props[prop]);
     }
     dst[prop] = src;
-    dst._notifySubscribers(prop, src);
+    if (!_.isEqual(prev, dst[prop]))
+      dst._notifySubscribers(prop, src);
 
     // console.log(prop);
     // console.log(dst._getRootState());
