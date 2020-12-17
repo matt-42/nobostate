@@ -171,7 +171,7 @@ test('reference-array-back-reference', () => {
 
   let bra = a._backReferences(state.table2._props.refs);
   let brb = b._backReferences(state.table2._props.refs);
-  
+
   expect(bra.length).toBe(1);
   expect(brb.length).toBe(2);
 
@@ -187,4 +187,33 @@ test('reference-array-back-reference', () => {
 
 });
 
+
+
+test('update-array-ref-with-_update', () => {
+  let state = createState({
+    table1: stateTable<Test>(),
+    table2: stateTable<{ id: string, ref: StateReferenceArray<Test> }>(),
+  },
+    {
+      setSpecs: (props, specs) => {
+        specs.reference(props.table2.ref, props.table1, { own: true });
+      }
+    });
+
+  state.table1.insert({ id: "1", text: "xxx" });
+  state.table1.insert({ id: "2", text: "xxx" });
+  let obj = state.table2.insert({ id: "1", ref: stateReferenceArray<Test>(["2"]) });
+
+  expect(obj.ref[0].id).toBe("2");
+  expect(obj.ref.length).toBe(1);
+
+  stateReferenceArray<Test>(["1"]);
+  expect(state.table1.size).toBe(2);
+
+  obj._update({ ref: stateReferenceArray<Test>(["1"]) });
+
+  expect(obj.ref.length).toBe(1);
+  expect(obj.ref[0].id).toBe("1");
+  expect(state.table1.size).toBe(1);
+});
 

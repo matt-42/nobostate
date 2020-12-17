@@ -3,13 +3,24 @@ import { stateObject } from "./nobostate";
 import { propagatePropIds } from "./prop";
 import { Constructor, StateBaseInterface, stateBaseMixin } from "./StateBase";
 import { StateObject } from "./StateObject";
+import { StateReferenceArray } from "./StateReferenceArray";
 import { updateState } from "./updateState";
 
 
-export function copyStateArray(dst_: StateArray<any> | StateObject<any>, src: any) {
+export function copyStateArray(dst_: StateArray<any> | StateObjectArray<any> | StateReferenceArray<any>, src: any) {
 
   let dst = dst_ as StateArray<any>;
 
+  if ((dst_ as StateReferenceArray<any>)._isStateReferenceArray) {
+    dst.clear();
+    
+    let srcArray = src as StateReferenceArray<any>;
+    if (!srcArray._isStateReferenceArray)
+      throw new Error("reference array copy, type error.");
+    
+    dst.push(...(srcArray._toInitialize || srcArray));
+    return;
+  }
   // Resize dst array if too large.
   while (dst.length > src.length)
     dst.pop();
@@ -131,7 +142,7 @@ export function stateArrayMixin<T>() {
       this._parentListener?.();
       this._thisSubscribers.map(s => s(this, -1));
     }
-    copy(other: T[]) { copyStateArray(this, other); }
+    copy(other: T[]) { copyStateArray(this as any, other); }
 
   }
 }

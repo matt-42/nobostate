@@ -54,13 +54,13 @@ export class StateReferenceImpl<T extends HasId<any>>
   _disposeRefOnChange: (() => void) | null = null;
   _disposeBackReference: (() => void) | null = null;
 
-  _refToInitialize: IdType<T> | T | null = null;
+  _toInitialize: IdType<T> | T | null = null;
 
   _previousSetArgument: IdType<T> | T | null = null;
 
   constructor(idOrObj = null as IdType<T> | T | StateObject<T> | null) {
     super();
-    this._refToInitialize = idOrObj;
+    this._toInitialize = idOrObj;
   }
 
   _setProps(props: PropSpec) {
@@ -79,8 +79,8 @@ export class StateReferenceImpl<T extends HasId<any>>
 
       this._disposeReference();
     })
-    this._set(this._refToInitialize);
-    this._refToInitialize = null;
+    this._set(this._toInitialize);
+    this._toInitialize = null;
   }
 
   _dereference() {
@@ -271,4 +271,7 @@ export function stateReference<T extends HasId<any>>(id: IdType<T> | T | StateOb
 }
 export function stateReferenceNotNull<T extends HasId<any>>(id: IdType<T> | T | StateObject<T>) {
   return createStateReferenceProxy(new StateReferenceNotNullImpl<T>(id)) as any as StateReferenceNotNull<T>;
+}
+export function nullStateReference() : StateReference<any> {
+  return stateReference<any>(null);
 }

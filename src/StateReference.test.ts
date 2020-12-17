@@ -1,9 +1,30 @@
 import { createState, stateTable } from "./nobostate";
-import { stateReference, StateReference } from "./StateReference";
+import { nullStateReference, stateReference, StateReference } from "./StateReference";
 import { stateReferenceArrayMixin, StateReferenceArray, stateReferenceArray } from "./StateReferenceArray";
 import { newStringId } from "./StateTable";
 
 type Test = { id: string, text: string };
+
+test('null-ref', () => {
+  let state = createState({
+    table1: stateTable<Test>(),
+    table2: stateTable<{ id: string, ref: StateReference<Test> }>(),
+  },
+    {
+      setSpecs: (props, specs) => {
+        specs.reference(props.table2.ref, props.table1, { own: true });
+      }
+    });
+
+  state.table1.insert({ id: "1", text: "xxx" });
+  let obj = state.table2.insert({ id: "1", ref: stateReference<Test>("1") });
+
+  obj.ref = nullStateReference();
+  expect(obj.ref._isNull()).toBeTruthy();
+
+  expect(state.table1.size).toBe(0);
+});
+
 
 test('ref-must-have-specs', () => {
   let state = createState({
@@ -16,6 +37,59 @@ test('ref-must-have-specs', () => {
   expect(() => state.table2.insert({ id: "1", ref: stateReference<Test>("1") })).toThrowError();
 
 });
+
+
+test('update-ref-with-_update', () => {
+  let state = createState({
+    table1: stateTable<Test>(),
+    table2: stateTable<{ id: string, ref: StateReference<Test> }>(),
+  },
+    {
+      setSpecs: (props, specs) => {
+        specs.reference(props.table2.ref, props.table1, { own: true });
+      }
+    });
+
+  state.table1.insert({ id: "1", text: "xxx" });
+  let obj = state.table2.insert({ id: "1", ref: stateReference<Test>("1") });
+
+  obj._update({ ref: stateReference<Test>(null) });
+
+  expect(obj.ref._isNull());
+  expect(state.table1.size).toBe(0);
+
+  state.table1.insert({ id: "1", text: "xxx" });
+  obj._update({ ref: stateReference<Test>("1") });
+  expect(obj.ref._isNotNull());
+  expect(obj.ref.id).toBe("1");
+
+});
+
+
+test('update-ref-with-equal', () => {
+  let state = createState({
+    table1: stateTable<Test>(),
+    table2: stateTable<{ id: string, ref: StateReference<Test> }>(),
+  },
+    {
+      setSpecs: (props, specs) => {
+        specs.reference(props.table2.ref, props.table1, { own: true });
+      }
+    });
+
+  state.table1.insert({ id: "1", text: "xxx" });
+  state.table1.insert({ id: "2", text: "xxx" });
+  let obj = state.table2.insert({ id: "1", ref: stateReference<Test>("1") });
+
+  obj.ref = nullStateReference();
+  expect(obj.ref._isNull());
+  expect(state.table1.size).toBe(1);
+
+  obj.ref = stateReference<Test>("2");
+  expect(obj.ref.id).toBe("2");
+
+});
+
 
 test('ref-change-listening', () => {
   let state = createState({
@@ -216,7 +290,7 @@ test('check-multiple-owner', () => {
 
   // state.table2.insert({ id: "2", ref: stateReference<Test>(obj)});
   expect(() => state.table2.insert({ id: "2", ref: stateReference<Test>(obj) })).toThrowError();
-  
+
   state.table2.insert({ id: "3", ref: stateReference<Test>(obj1) });
 
 });

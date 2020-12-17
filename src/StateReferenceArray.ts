@@ -84,6 +84,8 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
       this._getRootState()._history.group(() => {
         elements.forEach(elt => {
 
+          if (Array.isArray(elt))
+            throw new Error("type error: referenceArray::push takes elements, not array. Use push(...array) instead.");
           let ref: StateObject<T> | null = null;
           if ((elt as any)?.id !== undefined) {
             this._getRootState()._history.ignore(() => {
@@ -92,7 +94,8 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
           }
           else {
             ref = this._referencedTable().get(elt as IdType<T>) || null;
-            if (!ref) throw new Error(`StateReferenceArray error: trying to insert a non existing id ${elt}`);
+            if (!ref) throw new Error(`StateReferenceArray error: trying to create a ref to the non existing id ${elt} 
+              of table '${this._referencedTable()._props._path.join('.')}`);
           }
 
           if (!ref) throw new Error();
@@ -141,6 +144,7 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
 
 export type StateReferenceArray<T> = {
   _isStateReferenceArray: boolean;
+  _toInitialize: (IdType<T> | T)[];
   clear(): void;
   remove(filter: (o: StateObject<T>) => boolean): StateObject<T>[];
   push(...elements: (IdType<T> | T)[]): number;

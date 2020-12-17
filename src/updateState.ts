@@ -12,6 +12,8 @@ import { HistoryUpdatePropAction } from "./history";
 import { propagatePropIds } from "./prop";
 import { StateObject, stateObjectMixin } from "./StateObject";
 import { StateTable, stateTableMixin } from "./StateTable";
+import { StateReference } from "./StateReference";
+import { StateReferenceArray } from "./StateReferenceArray";
 
 export function updateState(dst: any, prop: any, src: any) {
 
@@ -21,12 +23,26 @@ export function updateState(dst: any, prop: any, src: any) {
     o?._isStateTable);
 
   let toUpdate = dst._get(prop);
-  if (toUpdate?._isStateArray) {// || toUpdate instanceof StateObjectArrayImpl) {
-    if (!(src as StateArray<any>)._isStateArray)
+
+  if (toUpdate?._isStateReference) {
+    let srcRef = src as StateReference<any>;
+    if (!srcRef._isStateReference)
+      throw new Error("UpdateState type error when updating array.");
+
+      (toUpdate as StateReference<any>)._set(srcRef._toInitialize || srcRef._referencedObject);
+  }
+  //
+  // Arrays.
+  //
+  else if (toUpdate?._isStateArray || toUpdate?._isStateReferenceArray) {// || toUpdate instanceof StateObjectArrayImpl) {
+    if (!(src as StateArray<any>)._isStateArray && !(src as StateReferenceArray<any>)._isStateReferenceArray)
       throw new Error("UpdateState type error when updating array.");
 
     copyStateArray(toUpdate, src);
   }
+  //
+  // Objects
+  //
   else if (toUpdate?._isStateObject) {
     if (!(src as StateObject<any>)._isStateObject)
       throw new Error("UpdateState type error when updating object.");
@@ -45,6 +61,9 @@ export function updateState(dst: any, prop: any, src: any) {
         updateState(obj, k, src[k]);
     }
   }
+  //
+  // Table
+  //
   else if (toUpdate?._isStateTable) {
     let srcTable = (src as StateTable<any>)
     if (!srcTable._isStateTable)
