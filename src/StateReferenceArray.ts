@@ -149,7 +149,7 @@ export type StateReferenceArray<T> = {
   remove(filter: (o: StateObject<T>) => boolean): StateObject<T>[];
   push(...elements: (IdType<T> | T)[]): number;
 
-} & StateObject<T>[];
+} & StateObjectArray<T>;
 
 export function stateReferenceArray<T extends HasId<any>>(elts?: (T | IdType<T>)[]): StateReferenceArray<T> {
   return new (stateReferenceArrayMixin())(elts) as any;

@@ -20,7 +20,7 @@ test('null-ref', () => {
   let obj = state.table2.insert({ id: "1", ref: stateReference<Test>("1") });
 
   obj.ref = nullStateReference();
-  expect(obj.ref._isNull()).toBeTruthy();
+  expect(obj.ref.ref).toBe(null);
 
   expect(state.table1.size).toBe(0);
 });
@@ -55,13 +55,13 @@ test('update-ref-with-_update', () => {
 
   obj._update({ ref: stateReference<Test>(null) });
 
-  expect(obj.ref._isNull());
+  expect(obj.ref.ref).toBeFalsy();
   expect(state.table1.size).toBe(0);
 
   state.table1.insert({ id: "1", text: "xxx" });
   obj._update({ ref: stateReference<Test>("1") });
-  expect(obj.ref._isNotNull());
-  expect(obj.ref.id).toBe("1");
+  expect(obj.ref.ref).toBeTruthy();
+  expect(obj.ref.ref.id).toBe("1");
 
 });
 
@@ -69,24 +69,24 @@ test('update-ref-with-_update', () => {
 test('update-ref-with-equal', () => {
   let state = createState({
     table1: stateTable<Test>(),
-    table2: stateTable<{ id: string, ref: StateReference<Test> }>(),
+    table2: stateTable<{ id: string, testRef: StateReference<Test> }>(),
   },
     {
       setSpecs: (props, specs) => {
-        specs.reference(props.table2.ref, props.table1, { own: true });
+        specs.reference(props.table2.testRef, props.table1, { own: true });
       }
     });
 
   state.table1.insert({ id: "1", text: "xxx" });
   state.table1.insert({ id: "2", text: "xxx" });
-  let obj = state.table2.insert({ id: "1", ref: stateReference<Test>("1") });
+  let obj = state.table2.insert({ id: "1", testRef: stateReference<Test>("1") });
 
-  obj.ref = nullStateReference();
-  expect(obj.ref._isNull());
+  obj.testRef = nullStateReference();
+  expect(obj.testRef.ref).toBe(null);
   expect(state.table1.size).toBe(1);
 
-  obj.ref = stateReference<Test>("2");
-  expect(obj.ref.id).toBe("2");
+  obj.testRef = stateReference<Test>("2");
+  expect(obj.testRef.ref.id).toBe("2");
 
 });
 
@@ -111,7 +111,7 @@ test('ref-change-listening', () => {
   expect(called).toBe(true);
 
   // must unsubscribe.
-  state.table2.assertGet("1").ref._set(null);
+  state.table2.assertGet("1").ref.set(null);
   called = false;
   state.table1.assertGet("1").text = "b";
   expect(called).toBe(false);
@@ -134,11 +134,11 @@ test('foreignkey-set-null', () => {
 
   let ref = state.table2.assertGet("1").ref;
 
-  expect(state.table2.assertGet("1").ref.id).toBe("1");
-  expect(state.table2.assertGet("1").ref.text).toBe("xxx");
+  expect(state.table2.assertGet("1").ref.ref.id).toBe("1");
+  expect(state.table2.assertGet("1").ref.ref.text).toBe("xxx");
 
   state.table1.remove("1");
-  expect(state.table2.assertGet("1").ref.id).toBe(undefined);
+  expect(state.table2.assertGet("1").ref.ref).toBe(null);
 
 });
 
@@ -160,8 +160,8 @@ test('foreign-key-cascade', () => {
   state.table2.insert({ id: "2", ref: stateReference<Test>("1") });
   state.table2.insert({ id: "3", ref: stateReference<Test>("2") });
 
-  expect(obj1.ref.id).toBe("1");
-  expect(obj1.ref.text).toBe("xxx");
+  expect(obj1.ref.ref.id).toBe("1");
+  expect(obj1.ref.ref.text).toBe("xxx");
 
   state.table1.remove("1");
   expect(state.table2.size).toBe(1);
@@ -179,7 +179,7 @@ test('foreign-key-custom-trigger', () => {
         specs.reference(props.table2.ref, props.table1,
           {
             onRefDeleted: (dst, removed) => {
-              dst.ref._set(null);
+              dst.ref.set(null);
               dst.x = 1;
               expect(removed.id).toBe("42");
             }
@@ -192,7 +192,7 @@ test('foreign-key-custom-trigger', () => {
 
   state.table1.remove("42");
   expect(state.table2.size).toBe(1);
-  expect(state.table2.get("1").ref.id).toBe(undefined);
+  expect(state.table2.get("1").ref.ref).toBe(null);
   expect(state.table2.get("1").x).toBe(1);
 
 });
@@ -234,40 +234,39 @@ test('reference-undo', () => {
   state.table2.insert({ id: "1", ref: stateReference<Test>(null), x: 0 });
   let obj = state.table2.assertGet("1");
 
-  expect(state.table2.assertGet("1").ref.id).toBeUndefined();
+  expect(state.table2.assertGet("1").ref.ref).toBe(null);
 
-  obj.ref._set({
+  obj.ref.set({
     id: newStringId(),
     text: "xxx"
   });
 
-  expect(state.table2.assertGet("1").ref.id).toBeDefined();
+  expect(state.table2.assertGet("1").ref.ref !== null).toBe(true);
   expect(state.table1.size).toBe(1);
   expect(state._history.size()).toBe(2);
 
   let ref = state.table2.assertGet("1").ref;
   expect(ref).toBe(state.table2.assertGet("1").ref);
 
-  ref._set(null);
+  ref.set(null);
 
-  // state.table2.assertGet("1").ref._set(null);
-  expect(ref.id).toBeUndefined();
-  expect(ref._isNull()).toBeTruthy();
+  // state.table2.assertGet("1").ref.set(null);
+  expect(ref.ref).toBe(null);
+  expect(ref.ref).toBeFalsy();
   expect(state._history.size()).toBe(3);
 
   state._history.undo();
 
   expect(state.table1.size).toBe(1);
-  expect(ref._isNull()).toBeFalsy();
-  expect(ref.id).toBeDefined();
+  expect(ref.ref).toBeTruthy();
+  expect(ref.ref.id).toBeDefined();
   expect(state._history.size()).toBe(3);
-  expect(ref.id).toBeDefined();
+  expect(ref.ref.id).toBeDefined();
 
   state._history.redo();
 
   expect(state._history.size()).toBe(3);
-  expect(ref.id).toBeUndefined();
-  expect(ref._isNull()).toBeTruthy();
+  expect(ref.ref).toBe(null);
 
 });
 
@@ -317,10 +316,10 @@ test('back-reference', () => {
   expect(br.x === objWithRef.x).toBe(true);
   // expect(br === objWithRef).toBe(true);
 
-  objWithRef.ref._set(null);
+  objWithRef.ref.set(null);
   expect(obj._backReferences(state._props.table2.ref).length).toBe(0);
 
-  objWithRef.ref._set("42");
+  objWithRef.ref.set("42");
   expect(obj._backReferences(state._props.table2.ref).length).toBe(1);
 
   state.table2.remove("1");

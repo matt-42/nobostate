@@ -15,7 +15,7 @@ import { StateArray, stateArrayMixin, StateObjectArray } from "./StateArray";
 import { stateArray, stateObject, stateObjectArray, stateTable } from "./nobostate";
 import { stateBaseMixin } from "./StateBase";
 import { StateObject, stateObjectMixin } from "./StateObject";
-import { StateReference, stateReference, StateReferenceImpl } from "./StateReference";
+import { StateReference, stateReference } from "./StateReference";
 import { stateReferenceArray, stateReferenceArrayMixin } from "./StateReferenceArray";
 import { StateTable, stateTableMixin } from "./StateTable";
 
@@ -118,8 +118,8 @@ export function unwrapState<T>(state: T): UnwrapedType<T>;
 export function unwrapState<T>(state: T): any {
 
   if ((state as any)._isStateReference) { // Ref
-    let ref = (state as any as StateReferenceImpl<any>)
-    return { _stateReference: ref._referencedObject ? ref._referencedObject.id : null };
+    let ref = (state as any as StateReference<any>)
+    return { _stateReference: ref.ref ? ref.ref.id : null };
   }
   else if ((state as any)._isStateReferenceArray) { // Ref Array
     let ref = (state as any as any[])

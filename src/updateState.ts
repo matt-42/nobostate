@@ -29,7 +29,7 @@ export function updateState(dst: any, prop: any, src: any) {
     if (!srcRef._isStateReference)
       throw new Error("UpdateState type error when updating array.");
 
-      (toUpdate as StateReference<any>)._set(srcRef._toInitialize || srcRef._referencedObject);
+      (toUpdate as StateReference<any>).set(srcRef._toInitialize || srcRef.ref);
   }
   //
   // Arrays.
@@ -80,15 +80,25 @@ export function updateState(dst: any, prop: any, src: any) {
         toUpdate.insert(elt);
     // throw new Error("not implemented");
   }
+  //
+  // Object props.
+  //
   else { // dst[prop] is a non state value. Update it.
     let prev = dst[prop];
 
+    // Registering a new prop.
+    // if src is a instance of StateBase, register it as a child
+    // and propagate props.
     if (prev === undefined && src?._isStateBase) {
       dst._registerChild(prop, src);
       if (dst._props)
         propagatePropIds(src, dst._props[prop]);
     }
+    // assign the prop to it's new value.
     dst[prop] = src;
+
+    // if it is different than it's previous version,
+    // notify the subscribers.
     if (!_.isEqual(prev, dst[prop]))
       dst._notifySubscribers(prop, src);
 

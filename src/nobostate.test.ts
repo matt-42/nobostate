@@ -366,13 +366,13 @@ function testUse() {
     arr2: stateObjectArray<Todo>(),
   });
 
-  state._use("todos").assertGet("");
+  state._useKey("todos").assertGet("");
 
-  let a: StateTable<Todo> = state._use("todos");
-  let x: string = state.todos.assertGet("")._use("description");
-  let x2: Todo = state.todos._use("x");
-  let x3: Todo = state.arr._use(1);
-  let x4: Todo = state.arr2._use(1);
+  let a: StateTable<Todo> = state._useKey("todos");
+  let x: string = state.todos.assertGet("")._useKey("description");
+  let x2: Todo = state.todos._useKey("x");
+  let x3: Todo = state.arr._useKey(1);
+  let x4: Todo = state.arr2._useKey(1);
 
   return [a];
 
