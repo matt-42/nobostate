@@ -49,12 +49,21 @@ export function stateTableMixin<T extends HasId<any>>() {
       return () => _.remove(this._insertListeners, l => l === listener);
     }
 
-    attach(fun: (o: StateObject<T>) => (() => void) | void) {
-      this.onInsert(object => {
-        let dispose = fun(object);
-        if (dispose)
-          object._removeListeners.push(dispose);
-      })
+    attach(fun: (o: StateObject<T>) => (() => void) | undefined) {
+      let disposed = false;
+
+      const attachToObject = (object: StateObject<T>) => {
+        let onRemove = fun(object);
+        if (onRemove)
+          object._onDelete(() => { if (!disposed && onRemove) onRemove(); });
+      }
+
+      let disposeOnInsert = this.onInsert(attachToObject);
+
+      for (let obj of this.values())
+        attachToObject(obj);
+
+      return () => { disposeOnInsert(); disposed = true; }
     }
 
     insert(value: T): StateObject<T> {

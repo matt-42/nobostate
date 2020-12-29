@@ -91,7 +91,7 @@ test("table iterator", () => {
 });
 
 
-test("table attach", () => {
+test("table-attach-new-elements", () => {
   let state = createState({ table: stateTable<{ id: number }>() });
 
   let called = 0;
@@ -114,6 +114,29 @@ test("table attach", () => {
   state.table.remove(1);
 
   expect(called).toBe(0);
+});
+test("table-attach-existing-elements", () => {
+  let state = createState({ table: stateTable<{ id: number }>() });
+
+  state.table.insert({ id: 1 });
+  state.table.insert({ id: 2 });
+
+  let called = 0;
+  state.table.attach(elt => {
+    called++;
+    expect(called).toBe(elt.id);
+
+    return () => {
+      expect(called).toBe(elt.id);
+      called--;
+    }
+  });
+
+
+  expect(called).toBe(2);
+  state.table.insert({ id: 3 });
+  expect(called).toBe(3);
+
 });
 
 test('table-clone', () => {
