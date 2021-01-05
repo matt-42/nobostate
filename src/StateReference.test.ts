@@ -1,7 +1,7 @@
-import { createState, stateTable } from "./nobostate";
+import { createState, stateObject, stateTable } from "./nobostate";
 import { nullStateReference, stateReference, StateReference } from "./StateReference";
 import { stateReferenceArrayMixin, StateReferenceArray, stateReferenceArray } from "./StateReferenceArray";
-import { newStringId } from "./StateTable";
+import { newIntId, newStringId } from "./StateTable";
 
 type Test = { id: string, text: string };
 
@@ -73,7 +73,7 @@ test('update-ref-with-equal', () => {
   },
     {
       setSpecs: (props, specs) => {
-        specs.reference(props.table2.testRef, props.table1, { own: true });
+        specs.reference(props.table2.testRef, props.table1);
       }
     });
 
@@ -83,10 +83,15 @@ test('update-ref-with-equal', () => {
 
   obj.testRef = nullStateReference();
   expect(obj.testRef.ref).toBe(null);
-  expect(state.table1.size).toBe(1);
+  expect(state.table1.size).toBe(2);
 
   obj.testRef = stateReference<Test>("2");
   expect(obj.testRef.ref.id).toBe("2");
+
+  obj.testRef = stateReference<Test>({id: newStringId(), text: "a"});
+  expect(obj.testRef.ref.text).toBe("a");
+  expect(obj.testRef.ref.id === "3").toBeTruthy();
+  expect(state.table1.size).toBe(3);
 
 });
 
