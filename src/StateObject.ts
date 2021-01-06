@@ -1,30 +1,8 @@
-import _, { create } from "lodash";
-import { useEffect, useState } from "react";
-import { StateObjectArray } from "./StateArray";
-import { PropSpec, ReferenceSpec } from "./prop";
-import { Constructor, StateBaseInterface, stateBaseMixin } from "./StateBase";
+import _ from "lodash";
+import { ReferenceSpec } from "./prop";
+import { StateBaseInterface, stateBaseMixin } from "./StateBase";
 import { updateState } from "./updateState";
 
-export function useNoboState2(state: any, prop?: any) {
-
-  const [, setRefreshToggle] = useState({});
-  const [value, setValue] = useState(prop ? state._get(prop) : state);
-
-  useEffect(() => {
-    let listener = _.throttle(() => {
-      setValue(prop ? state._get(prop) : state);
-      setRefreshToggle({});
-    }, 50);
-
-    if (prop)
-      return state._subscribe(prop, listener);
-
-    else
-      return state._subscribe(listener);
-
-  }, []);
-  return value;
-}
 
 export function stateObjectMixin<T>() {
 
@@ -36,14 +14,7 @@ export function stateObjectMixin<T>() {
 
     constructor(src: T) {
       super();
-
       this._update(src);
-      // for (let k in src) {
-      //   (this as any)[k] = src[k];
-      //   if ((src[k] as any)?._isStateBase)
-      //     this._registerChild(k as any, (this as any)[k] as any);
-      // }
-
     }
 
     _addBackReference<Parent>(p: ReferenceSpec<any, Parent>, obj: Parent): () => void {

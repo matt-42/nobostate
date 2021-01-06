@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "No boilerplate state management",
   "license": "MIT",
-  "main": "dist/nobostate.js",
+  "main": "dist/index.js",
   "devDependencies": {
     "@babel/core": "^7.12.9",
     "@babel/preset-env": "^7.12.7",
@@ -20,11 +20,11 @@
     "@types/react": ">=17.0.0"
   },
   "dependencies": {
-    "lodash": "^4.17.20",
-    "react": "^17.0.1"
+    "lodash": "^4.17.20"
   },
   "scripts": {
-    "build": "rm -f ./dist/* && tsc && uglifyjs ./dist/*.js  --compress --mangle -o ./dist/nobostate.min.js  --source-map   &&  tar cf - ./dist/*.min.js | xz -9 > ./dist/nobostate.min.gz && ls -lha ./dist/*.min.*",
+    "build": "rm -f ./dist/* && tsc",
+    "buildStandalone": "rm -f ./dist/* && tsc && uglifyjs ./dist/index.js  --compress --mangle -o ./dist/nobostate.min.js  --source-map   &&  tar cf - ./dist/*.min.js | xz -9 > ./dist/nobostate.min.gz && ls -lha ./dist/*.min.*",
     "alltests": "jest",
     "specifictest": "jest -t subscribers-with-key ./src/StateBaseClass.test.ts",
     "specifictest2": "jest -t update-array-ref-with-_update"
