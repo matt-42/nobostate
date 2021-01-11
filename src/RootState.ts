@@ -7,14 +7,32 @@ import { updateState } from "./updateState";
 
 
 export class RootStateImpl<T> extends stateObjectMixin<{}>() {
-  
+
   _history = new NoboHistory();
 
   _load(data: any) {
-    let loadedState = reviveReferences(revive(data));
+    // this.pauseSubscribers();
+    let loadedState = revive(data);
+
+    // for (let k in loadedState) {
+    //   if ((k as string).startsWith("_")) continue;
+
+    //   if (isPrimitive((this as any)[k])) {
+    //     // console.log("update ", k, " with ", loadedState[k])
+    //     (this as any)[k] = loadedState[k];
+    //     this._notifySubscribers(k, (this as any)[k]);
+    //   }
+
+    //   else
+    //     updateState(this, k, loadedState[k]);
+    // }
+
     for (let k in loadedState)
       if (!k.startsWith("_"))
         updateState(this, k, loadedState[k]);
+
+    reviveReferences(this, data);
+    // this.resumeSubscribers();
   }
 
 }

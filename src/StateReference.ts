@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { ReferenceSpec, PropSpec } from "./prop";
 import { StateBaseInterface, stateBaseMixin } from "./StateBase";
 import { StateObject } from "./StateObject";
@@ -61,6 +62,8 @@ export class StateReference<T extends HasId<any>>
 
   _previousSetArgument: IdType<T> | T | null = null;
 
+  _refListeners: ((ref : StateObject<T>|null) => void)[] = [];
+
   constructor(idOrObj = null as IdType<T> | T | StateObject<T> | null) {
     super();
     this._toInitialize = idOrObj;
@@ -82,11 +85,11 @@ export class StateReference<T extends HasId<any>>
 
       this._disposeReference();
     })
-    this.set(this._toInitialize);
+    this.set(this._toInitialize, false);
     this._toInitialize = null;
   }
 
-  _disposeReference() {
+  private _disposeReference() {
     this._disposeRefOnDelete?.();
     this._disposeRefOnChange?.();
     this._disposeBackReference?.();
@@ -95,24 +98,31 @@ export class StateReference<T extends HasId<any>>
     this._disposeRefOnChange = null;
   }
 
-  _specs(): ReferenceSpec<any, any> {
+  private _specs(): ReferenceSpec<any, any> {
     let specs = this._props as ReferenceSpec<any, any>;
     if (!specs) throw new Error();
     return specs;
   }
 
-  _referencedTable(): StateTable<T> {
+  private _referencedTable(): StateTable<T> {
     let specs = this._specs();
     if (!specs || !specs._ref) throw new Error();
     return this._rootStateAccess(specs._ref._path);
   }
 
-  _removeReferencedObject() {
+  private _removeReferencedObject() {
     if (this._ref)
       (this._ref._parent as StateTable<T>).remove(this._ref.id);
   }
 
-  set(idOrNewObj: IdType<T> | StateObject<T> | T | null) {
+  _subscribeRef(listener: (ref : StateObject<T>|null) => void) {
+    this._refListeners.push(listener);
+    return () => { 
+      _.remove(this._refListeners, l => l === listener);
+    };
+  }
+
+  set(idOrNewObj: IdType<T> | StateObject<T> | T | null, notify = true) {
 
     if (!this._getRootState()._history)
       throw new Error("Cannot set a reference on a object unattached to any root state.");
@@ -187,8 +197,11 @@ export class StateReference<T extends HasId<any>>
       });
     }
 
-    this._notifyThisSubscribers();
-
+    if (notify)
+    {
+      this._notifyThisSubscribers();
+      this._refListeners.forEach(l => l(this.ref));
+    }
 
   }
 }

@@ -7,13 +7,13 @@
  */
 
 import _ from "lodash";
-import { copyStateArray, StateArray, stateArrayMixin } from "./StateArray";
 import { HistoryUpdatePropAction } from "./history";
 import { propagatePropIds } from "./prop";
-import { StateObject, stateObjectMixin } from "./StateObject";
-import { StateTable, stateTableMixin } from "./StateTable";
+import { copyStateArray, StateArray } from "./StateArray";
+import { StateObject } from "./StateObject";
 import { StateReference } from "./StateReference";
 import { StateReferenceArray } from "./StateReferenceArray";
+import { StateTable } from "./StateTable";
 
 export function updateState(dst: any, prop: any, src: any) {
 
@@ -27,7 +27,11 @@ export function updateState(dst: any, prop: any, src: any) {
   if (toUpdate?._isStateReference) {
     let srcRef = src as StateReference<any>;
     if (!srcRef._isStateReference)
-      throw new Error("UpdateState type error when updating array.");
+    {
+      console.log(toUpdate);
+      console.log(src);
+      throw new Error(`UpdateState type error when updating reference ${dst._props._path.join('/')}/${prop}`);
+    }
 
       (toUpdate as StateReference<any>).set(srcRef._toInitialize || srcRef.ref);
   }
@@ -94,6 +98,9 @@ export function updateState(dst: any, prop: any, src: any) {
       if (dst._props)
         propagatePropIds(src, dst._props[prop]);
     }
+    // else if (src?._isStateBase && dst._props && !src._props)
+    //   propagatePropIds(src, dst._props[prop]);
+
     // assign the prop to it's new value.
     dst[prop] = src;
 

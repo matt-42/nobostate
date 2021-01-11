@@ -332,3 +332,40 @@ test('back-reference', () => {
 
 });
 
+
+test('check-multiple-owner', () => {
+
+  let state = createState({
+    table1: stateTable<Test>(),
+    table2: stateTable<{ id: string, ref: StateReference<Test> }>(),
+  },
+    {
+      setSpecs: (props, specs) => {
+        specs.reference(props.table2.ref, props.table1);
+      }
+    });
+
+  let obj = state.table1.insert({ id: "42", text: "xxx" });
+  let obj1 = state.table1.insert({ id: "43", text: "xxx" });
+  let objWithRef = state.table2.insert({ id: "1", ref: stateReference<Test>(obj) });
+
+  let called = 0;
+  let dispose = objWithRef.ref._subscribeRef(ref => { 
+    called++; 
+    if (called === 1) expect(ref).toBe(obj);
+    if (called === 2) expect(ref).toBe(obj1);
+    if (called === 3) expect(ref).toBe(null);
+  });
+
+  objWithRef.ref.set(obj);
+  expect(called).toBe(1);
+  objWithRef.ref.set("43");
+  expect(called).toBe(2);
+  objWithRef.ref.set(null);
+  expect(called).toBe(3);
+  
+  dispose();
+  objWithRef.ref.set(obj);
+  expect(called).toBe(3);
+
+});

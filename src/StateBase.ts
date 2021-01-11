@@ -3,30 +3,9 @@ import { useEffect, useState } from "react";
 import { NoboHistory } from "./history";
 import { PropSpec, StatePropIdentifiers } from "./prop";
 import { RootState } from "./RootState";
-import { updateState } from "./updateState";
+// import { updateState } from "./updateState";
 
 
-
-export function useNoboState(state: any, prop?: any) {
-
-  const [, setRefreshToggle] = useState({});
-  const [value, setValue] = useState(prop ? state._get(prop) : state);
-
-  useEffect(() => {
-    let listener = _.throttle(() => {
-      setValue(prop ? state._get(prop) : state);
-      setRefreshToggle({});
-    }, 50);
-
-    if (prop)
-      return state._subscribe(prop, listener);
-
-    else
-      return state._subscribe(listener);
-
-  }, []);
-  return value;
-}
 
 export type ObjectPropsKeys<T> = {
   [K in keyof T]: T[K] extends Function ? never : K;
@@ -109,42 +88,53 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
       return elt;
     }
 
-    _subscribeSelector<R>(selector: (t: this) => R, compute: (selected: R) => void): void {
+    _subscribeSelector<R>(selector: (t: this) => R, compute: (selected: R) => void, initCall = false): void {
       let prev: R | null = null;
       this._subscribe(() => {
         let selected = selector(this);
         if (!_.isEqual(prev, selected))
+        {
+          prev = selected;
           compute(selected);
-      })
+        }
+      }, initCall);
     }
 
-    _subscribe(listener: (value: this, updatedKey: ThisKeys) => void): () => void {
+    _subscribe(listener: (value: this, updatedKey: ThisKeys) => void, initCall = false): () => void {
+      if (typeof listener !== 'function')
+        throw new Error("Type error: listener is not a function.");
       this._thisSubscribers.push(listener);
+      if (initCall)
+        listener(this, null as any);
       return () => _.remove(this._thisSubscribers, s => s === listener);
     }
 
     _subscribeKey<K extends ThisKeys>(
       key: K,
-      listener: (value: ThisKeyAccessType<K>, updatedKey: ThisKeys) => void
+      listener: (value: ThisKeyAccessType<K>, updatedKey: ThisKeys) => void,
+      initCall = false
     ): () => void {
       this._subscribers[key as string] ||= [];
       let subs = this._subscribers[key as string] as ((value: ThisKeyAccessType<K>, key: ThisKeys) => void)[];
       subs?.push(listener);
+      if (initCall && (this as any)[key] !== undefined)
+        listener((this as any)[key], key);
       return () => { if (subs) _.remove(subs, s => s === listener); };
     }
 
     _subscribeKeys(
       keys: ThisKeys[],
-      listener: (value: this, updatedKey: ThisKeys) => void
+      listener: (value: this, updatedKey: ThisKeys) => void,
+      initCall = false
     ): () => void {
-      let disposers = keys.map(k => this._subscribeKey(k, (v: any, updatedKey: ThisKeys) => listener(this, updatedKey)));
+      let disposers = keys.map(k => this._subscribeKey(k, (v: any, updatedKey: ThisKeys) => listener(this, updatedKey), initCall));
       return () => disposers.forEach(f => f());
     }
 
     _get<P extends ThisKeys>(prop: P): ThisKeyAccessType<P> { return (this as any)[prop]; }
-    _set<P extends ThisKeys>(prop: P, value: ThisKeyAccessType<P>) {
-      updateState(this, prop, value);
-    }
+    // _set<P extends ThisKeys>(prop: P, value: ThisKeyAccessType<P>) {
+    //   updateState(this, prop, value);
+    // }
 
     // A prop has been updated.
     // notify subscribers and the parent.
@@ -218,23 +208,25 @@ export interface StateBaseInterface<T> {
 
   _rootStateAccess(path: string[]): any;
 
-  _subscribeSelector<R>(selector: (t: this) => R, compute: (selected: R) => void): void;
+  _subscribeSelector<R>(selector: (t: this) => R, compute: (selected: R) => void, initCall? : boolean): void;
 
-  _subscribe(listener: (value: this, updatedKey: Keys<T>) => void): () => void;
+  _subscribe(listener: (value: this, updatedKey: Keys<T>) => void, initCall? : boolean): () => void;
 
   _subscribeKey<K extends Keys<T>>(
     key: K,
-    listener: (value: KeyAccessType<T, K>, updatedKey: Keys<T>) => void
+    listener: (value: KeyAccessType<T, K>, updatedKey: Keys<T>) => void,
+    initCall? : boolean
   ): () => void;
 
   _subscribeKeys(
     keys: Keys<T>[],
-    listener: (value: this, updatedKey: Keys<T>) => void
+    listener: (value: this, updatedKey: Keys<T>) => void,
+    initCall? : boolean
   ): () => void;
 
 
   _get<P extends Keys<T>>(prop: P): KeyAccessType<T, P>;
-  _set<P extends Keys<T>>(prop: P, value: KeyAccessType<T, P>): void;
+  // _set<P extends Keys<T>>(prop: P, value: KeyAccessType<T, P>): void;
 
   // A prop has been updated.
   // notify subscribers and the parent.
@@ -250,4 +242,25 @@ export interface StateBaseInterface<T> {
    * Deep comparison (_.isEqual) is used to compare values.
    */
   _useSelector<R>(selector: (o: this) => R): R;
+}
+
+export function useNoboState(state: any, prop?: any) {
+
+  const [, setRefreshToggle] = useState({});
+  const [value, setValue] = useState(prop ? state._get(prop) : state);
+
+  useEffect(() => {
+    let listener = _.throttle(() => {
+      setValue(prop ? state._get(prop) : state);
+      setRefreshToggle({});
+    }, 50);
+
+    if (prop)
+      return state._subscribeKey(prop, listener);
+
+    else
+      return state._subscribe(listener);
+
+  }, []);
+  return value;
 }

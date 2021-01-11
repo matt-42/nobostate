@@ -79,7 +79,8 @@ export function createProxy<T extends Object>(wrapped: T) {
       if ((prop as string).startsWith("_"))
         (target as any)[prop as string] = value;
       else
-        (target as any)._set(prop, value);
+        updateState(target, prop, value)
+        // (target as any)._set(prop, value);
       return true;
     },
   });

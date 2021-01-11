@@ -1,10 +1,8 @@
-import { StateArray, stateArrayMixin, StateObjectArray, stateObjectArrayMixin } from "./StateArray";
-import { createPropIds, ReferenceSpec, PropSpec, StatePropIdentifiers, TablePropSpec } from "./prop";
+import { createPropIds, PropSpec, ReferenceSpec, StatePropIdentifiers, TablePropSpec } from "./prop";
 import { makeRootState, RootState } from "./RootState";
-import { StateBaseInterface } from "./StateBase";
-import { StateReference, StateReferenceNotNull } from "./StateReference";
+import { StateArray, stateArrayMixin, StateObjectArray, stateObjectArrayMixin } from "./StateArray";
 import { createProxy, StateObject, stateObjectMixin } from "./StateObject";
-import { HasId, IdType, StateTable, stateTableMixin } from "./StateTable";
+import { HasId, StateTable, stateTableMixin } from "./StateTable";
 
 
 // type ReadOnly<T> =

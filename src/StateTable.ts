@@ -1,12 +1,9 @@
 import _ from "lodash";
-import { StateArray } from "./StateArray";
 import { HistoryTableAction } from "./history";
-import { stateObject } from "./nobostate";
-import { propagatePropIds, TablePropSpec } from "./prop";
-import { stateBaseMixin, StateBaseInterface } from "./StateBase";
-import { StateObject, anyStateObject } from "./StateObject";
-import { StateReference } from "./StateReference";
-import { unwrapState, revive } from "./unwrap_revive";
+import { propagatePropIds } from "./prop";
+import { StateBaseInterface, stateBaseMixin } from "./StateBase";
+import { anyStateObject, StateObject } from "./StateObject";
+import { revive, unwrapState } from "./unwrap_revive";
 import { updateState } from "./updateState";
 
 
@@ -82,16 +79,22 @@ export function stateTableMixin<T extends HasId<any>>() {
           value = {...value, id: id.toString() };
         }
 
+        // check if id already exists.
         if (this.has(value.id))
           throw new Error(`table ${this._props._path.join('.')} with id ${value.id} already exists`);
+
+        // Insert a new placeholder stateObject in the map.
         let elt = anyStateObject() as any as StateObject<T>;
+        super.set(value.id, elt);
+
+        // Update the placeholder with the new element attributes.
+        // updateState(this, value.id, value);
         elt._update(value);
 
         let id = elt.id;
         this._registerChild(id, elt);
         propagatePropIds(elt, this._props);
 
-        super.set(id, elt);
         this._lastInsertId = id;
         this._notifySubscribers(id, elt);
         // console.log(this._getRootState());
@@ -166,15 +169,17 @@ export function stateTableMixin<T extends HasId<any>>() {
       this._getRootState()._history.group(`remove-${this._props._path.join('-')}-${id}`, () => {
 
         let eltToDelete = this.assertGet(id);
-        // call the on delete listeners.
-        // clone the array because listeners can remove themselves from the array, breaking foreack.
-        [...eltToDelete._removeListeners].forEach((f: any) => f(eltToDelete));
 
         [...this._thisSubscribers].forEach(f => f(this, id));
         this._parentListener?.();
 
         // this._insertListeners.forEach(f => f(eltToDelete._wrapped));
         this.delete(id);
+
+        // call the on delete listeners.
+        // clone the array because listeners can remove themselves from the array, breaking foreach.
+        [...eltToDelete._removeListeners].forEach((f: any) => f(eltToDelete));
+
 
         this._getRootState()._history.push({
           action: "remove",

@@ -23,10 +23,10 @@
     "lodash": "^4.17.20"
   },
   "scripts": {
-    "build": "rm -f ./dist/* && tsc",
+    "build": "tsc",
     "buildStandalone": "rm -f ./dist/* && tsc && uglifyjs ./dist/index.js  --compress --mangle -o ./dist/nobostate.min.js  --source-map   &&  tar cf - ./dist/*.min.js | xz -9 > ./dist/nobostate.min.gz && ls -lha ./dist/*.min.*",
     "alltests": "jest",
     "specifictest": "jest -t subscribers-with-key ./src/StateBaseClass.test.ts",
-    "specifictest2": "jest -t update-array-ref-with-_update"
+    "specifictest2": "jest -t revive-reference"
   }
 }

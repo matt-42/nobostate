@@ -1,5 +1,8 @@
+import { StateReference, StateReferenceNotNull } from "./StateReference";
 import { createState, stateTable } from "./nobostate";
 import { StateReferenceArray, stateReferenceArray } from "./StateReferenceArray";
+import { newStringId } from "./StateTable";
+import { stateReferenceNotNull } from "./StateReference";
 
 type Test = { id: string, text: string };
 
@@ -196,7 +199,7 @@ test('update-array-ref-with-_update', () => {
   },
     {
       setSpecs: (props, specs) => {
-        specs.reference(props.table2.ref, props.table1, { own: true });
+        specs.referenceArray(props.table2.ref, props.table1, { own: true });
       }
     });
 
@@ -215,5 +218,46 @@ test('update-array-ref-with-_update', () => {
   expect(obj.ref.length).toBe(1);
   expect(obj.ref[0].id).toBe("1");
   expect(state.table1.size).toBe(1);
+});
+
+test('update-array-ref-with-_update', () => {
+  type Test = { id: string };
+  type TestRef = { id: string, ref: StateReferenceNotNull<Test> };
+  let state = createState({
+    table1: stateTable<Test>(),
+    table2: stateTable<TestRef>(),
+    table3: stateTable<{ id: string, refs: StateReferenceArray<TestRef> }>(),
+  },
+    {
+      setSpecs: (props, specs) => {
+        specs.referenceArray(props.table3.refs, props.table2, { own: true });
+        specs.reference(props.table2.ref, props.table1, { own: true });
+      }
+    });
+
+  // state.table1.insert({ id: "1"});
+  // state.table1.insert({ id: "2" });
+  let obj = state.table3.insert({ id: "1", refs: stateReferenceArray<TestRef>() });
+
+  obj.refs.push({
+    id: "42",
+    ref: stateReferenceNotNull<Test>({id: "42"})
+  });
+
+  expect(state.table3.assertGet("1").refs[0].ref.ref.id).toBe("42");
+  expect(state.table2.size).toBe(1);
+  expect(state.table1.size).toBe(1);
+  
+  // expect(obj.ref[0].id).toBe("2");
+  // expect(obj.ref.length).toBe(1);
+
+  // stateReferenceArray<Test>(["1"]);
+  // expect(state.table1.size).toBe(2);
+
+  // obj._update({ ref: stateReferenceArray<Test>(["1"]) });
+
+  // expect(obj.ref.length).toBe(1);
+  // expect(obj.ref[0].id).toBe("1");
+  // expect(state.table1.size).toBe(1);
 });
 
