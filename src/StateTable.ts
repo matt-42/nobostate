@@ -165,6 +165,8 @@ export function stateTableMixin<T extends HasId<any>>() {
     }
 
     remove(id: Id) {
+      console.log(`${this._props._path.join('/')}: remove id`, id);
+      console.trace();
       // Group all actions related to 1 remove.
       this._getRootState()._history.group(`remove-${this._props._path.join('-')}-${id}`, () => {
 
@@ -174,13 +176,16 @@ export function stateTableMixin<T extends HasId<any>>() {
         this._parentListener?.();
 
         // this._insertListeners.forEach(f => f(eltToDelete._wrapped));
-        this.delete(id);
-
+        
         // call the on delete listeners.
         // clone the array because listeners can remove themselves from the array, breaking foreach.
         [...eltToDelete._removeListeners].forEach((f: any) => f(eltToDelete));
 
-
+        // Then we remove the element from the table.
+        // Note: we must do it after removelisteners because they may need to retreive info
+        // about the element being removed.
+        this.delete(id);
+        
         this._getRootState()._history.push({
           action: "remove",
           propId: this._props,

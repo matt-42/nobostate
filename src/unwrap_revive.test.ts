@@ -3,7 +3,7 @@ import { stateReference, StateReference } from "./StateReference";
 import { StateReferenceArray } from "./StateReferenceArray";
 import { unwrapState } from "./unwrap_revive";
 
-test('revive-reference', () => {
+test('unwrap-revive-reference', () => {
   type Item = {id: number};
 
   let state = createState({

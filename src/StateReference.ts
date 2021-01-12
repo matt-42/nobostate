@@ -62,7 +62,7 @@ export class StateReference<T extends HasId<any>>
 
   _previousSetArgument: IdType<T> | T | null = null;
 
-  _refListeners: ((ref : StateObject<T>|null) => void)[] = [];
+  _refListeners: ((ref: StateObject<T> | null) => void)[] = [];
 
   constructor(idOrObj = null as IdType<T> | T | StateObject<T> | null) {
     super();
@@ -77,7 +77,7 @@ export class StateReference<T extends HasId<any>>
     super._setProps(props);
 
     this._parent._onDelete(() => {
-      
+
       if (this._specs()._own) {
         // remove ref when the parent stateobject is deleted.
         this._removeReferencedObject();
@@ -115,9 +115,9 @@ export class StateReference<T extends HasId<any>>
       (this._ref._parent as StateTable<T>).remove(this._ref.id);
   }
 
-  _subscribeRef(listener: (ref : StateObject<T>|null) => void) {
+  _subscribeRef(listener: (ref: StateObject<T> | null) => void) {
     this._refListeners.push(listener);
-    return () => { 
+    return () => {
       _.remove(this._refListeners, l => l === listener);
     };
   }
@@ -139,8 +139,7 @@ export class StateReference<T extends HasId<any>>
       if ((idOrNewObj as StateBaseInterface<any>)?._isStateBase) {
         this._ref = idOrNewObj as StateObject<T>;
         // If we will own the object check that is is not already owned. 
-        if (this._specs()._own && this._ref._backReferences(this._specs()).length)
-        {
+        if (this._specs()._own && this._ref._backReferences(this._specs()).length) {
           let owner = this._ref._backReferences(this._specs())[0];
           throw new Error(`Reference is already owned by ${owner._props._path.join('.')}[id == ${owner.id}]`);
         }
@@ -151,7 +150,8 @@ export class StateReference<T extends HasId<any>>
       else if (idOrNewObj !== null) {
         this._ref = this._referencedTable().get(idOrNewObj as IdType<T>) || null;
         if (!this._ref)
-          throw new Error("StateReferenceArray error: trying to reference a non existing id " + idOrNewObj);
+          throw new Error("StateReference error: trying to reference a non existing id " + idOrNewObj +
+            `. reference : ${this._props._path.join('/')}. referenced table: ${this._referencedTable()._props._path.join("/")} `);
       }
       else {
         this._ref = null;
@@ -197,8 +197,7 @@ export class StateReference<T extends HasId<any>>
       });
     }
 
-    if (notify)
-    {
+    if (notify) {
       this._notifyThisSubscribers();
       this._refListeners.forEach(l => l(this.ref));
     }
@@ -218,9 +217,9 @@ export class StateReferenceNotNullImpl<T extends HasId<any>>
     if (!this._ref)
       throw new Error("StateForeignNotNull::set resulted in a null reference.");
   }
- }
+}
 
-export type StateReferenceNotNull<T extends HasId<any>> = {ref : StateObject<T>} & StateReferenceNotNullImpl<T>
+export type StateReferenceNotNull<T extends HasId<any>> = { ref: StateObject<T> } & StateReferenceNotNullImpl<T>
 
 
 export function stateReference<T extends HasId<any>>(id: IdType<T> | T | StateObject<T> | null) {
@@ -229,6 +228,6 @@ export function stateReference<T extends HasId<any>>(id: IdType<T> | T | StateOb
 export function stateReferenceNotNull<T extends HasId<any>>(id: IdType<T> | T | StateObject<T>) {
   return new StateReferenceNotNullImpl<T>(id) as StateReferenceNotNull<T>;
 }
-export function nullStateReference() : StateReference<any> {
+export function nullStateReference(): StateReference<any> {
   return stateReference<any>(null);
 }

@@ -11,6 +11,7 @@ export class RootStateImpl<T> extends stateObjectMixin<{}>() {
   _history = new NoboHistory();
 
   _load(data: any) {
+    this._beginTransaction();
     // this.pauseSubscribers();
     let loadedState = revive(data);
 
@@ -33,8 +34,21 @@ export class RootStateImpl<T> extends stateObjectMixin<{}>() {
 
     reviveReferences(this, data);
     // this.resumeSubscribers();
+    this._commitTransaction();
   }
 
+  _inTransaction: boolean = false;
+  _transactionCompleteListeners = new Map<any, () => void>();
+
+  _beginTransaction() { this._inTransaction = true; }
+  _commitTransaction() { 
+    this._transactionCompleteListeners.forEach(l => l());
+    this._transactionCompleteListeners.clear();
+    this._inTransaction = false; 
+  }
+  _onTransactionComplete(key: any, listener: () => void) { 
+    this._transactionCompleteListeners.set(key, listener);
+  }
 }
 
 export type RootState<T> = StateObject<T> & RootStateImpl<T>;

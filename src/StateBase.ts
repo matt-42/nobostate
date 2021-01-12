@@ -139,13 +139,33 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
     // A prop has been updated.
     // notify subscribers and the parent.
     _notifySubscribers<P extends ThisKeys>(propOrId: P, value: ThisKeyAccessType<P>) {
-      [...this._subscribers[propOrId as string] || []].forEach(sub => sub(this._get(propOrId), propOrId));
-      [...this._thisSubscribers].forEach(sub => sub(this, propOrId));
-      this._parentListener?.();
+      let root = this._getRootState();
+      if (root._inTransaction)
+      {
+        [...this._subscribers[propOrId as string] || []].forEach(sub => root._onTransactionComplete(sub, () => sub(this._get(propOrId), propOrId)));
+        [...this._thisSubscribers].forEach(sub => root._onTransactionComplete(sub, () => sub(this, propOrId)));
+        if (this._parentListener)
+          root._onTransactionComplete(this._parentListener, this._parentListener);        
+      }
+      else {
+
+        [...this._subscribers[propOrId as string] || []].forEach(sub => sub(this._get(propOrId), propOrId));
+        [...this._thisSubscribers].forEach(sub => sub(this, propOrId));
+        this._parentListener?.();
+      }
     }
-    _notifyThisSubscribers<P extends ThisKeys>() {
-      this._parentListener?.();
-      [...this._thisSubscribers].forEach(sub => sub(this, null as any));
+    _notifyThisSubscribers() {
+      let root = this._getRootState();
+      if (root._inTransaction)
+      {
+        [...this._thisSubscribers].forEach(sub => root._onTransactionComplete(sub, () => sub(this, null as any)));
+        if (this._parentListener)
+          root._onTransactionComplete(this._parentListener, this._parentListener);        
+      }
+      else {
+        [...this._thisSubscribers].forEach(sub => sub(this, null as any));
+        this._parentListener?.();  
+      }
     }
 
     _registerChild<P extends ThisKeys>(propOrId: P, child: ThisKeyAccessType<P>) {
