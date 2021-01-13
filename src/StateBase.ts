@@ -20,8 +20,8 @@ type KeyAccessType<T, P> =
 
 type KeyAccessTypeWithNull<T, P> =
   T extends (infer O)[] ? O | null :
-  T extends Array<infer O> ? O | null:
-  T extends Map<any, infer O> ? O | null:
+  T extends Array<infer O> ? O | null :
+  T extends Map<any, infer O> ? O | null :
   P extends keyof T ? T[P] : never;
 
 type Keys<T> =
@@ -92,8 +92,7 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
       let prev: R | null = null;
       this._subscribe(() => {
         let selected = selector(this);
-        if (!_.isEqual(prev, selected))
-        {
+        if (!_.isEqual(prev, selected)) {
           prev = selected;
           compute(selected);
         }
@@ -136,36 +135,28 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
     //   updateState(this, prop, value);
     // }
 
+    _runNotification(listener: (...args: any[]) => void, ...args: any[]) {
+      let root = this._getRootState();
+      if (root._notification)
+        root._notification(listener, ...args);
+      else
+        listener(...args);
+    }
+
     // A prop has been updated.
     // notify subscribers and the parent.
     _notifySubscribers<P extends ThisKeys>(propOrId: P, value: ThisKeyAccessType<P>) {
-      let root = this._getRootState();
-      if (root._inTransaction)
-      {
-        [...this._subscribers[propOrId as string] || []].forEach(sub => root._onTransactionComplete(sub, () => sub(this._get(propOrId), propOrId)));
-        [...this._thisSubscribers].forEach(sub => root._onTransactionComplete(sub, () => sub(this, propOrId)));
-        if (this._parentListener)
-          root._onTransactionComplete(this._parentListener, this._parentListener);        
-      }
-      else {
 
-        [...this._subscribers[propOrId as string] || []].forEach(sub => sub(this._get(propOrId), propOrId));
-        [...this._thisSubscribers].forEach(sub => sub(this, propOrId));
-        this._parentListener?.();
-      }
+
+      [...this._subscribers[propOrId as string] || []].forEach(sub => this._runNotification(sub, this._get(propOrId), propOrId));
+      [...this._thisSubscribers].forEach(sub => this._runNotification(sub, this, propOrId));
+      if (this._parentListener) this._runNotification(this._parentListener);
+
     }
     _notifyThisSubscribers() {
-      let root = this._getRootState();
-      if (root._inTransaction)
-      {
-        [...this._thisSubscribers].forEach(sub => root._onTransactionComplete(sub, () => sub(this, null as any)));
-        if (this._parentListener)
-          root._onTransactionComplete(this._parentListener, this._parentListener);        
-      }
-      else {
-        [...this._thisSubscribers].forEach(sub => sub(this, null as any));
-        this._parentListener?.();  
-      }
+      [...this._thisSubscribers].forEach(sub => this._runNotification(sub, this, null as any));
+      if (this._parentListener) this._runNotification(this._parentListener);
+
     }
 
     _registerChild<P extends ThisKeys>(propOrId: P, child: ThisKeyAccessType<P>) {
@@ -180,7 +171,6 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
       }
     }
 
-    _use(): this { return useNoboState(this); }
     _useKey<K extends ThisKeys>(prop: K): ThisKeyAccessTypeWithNull<K> { return useNoboState(this, prop); }
 
     /**
@@ -228,20 +218,20 @@ export interface StateBaseInterface<T> {
 
   _rootStateAccess(path: string[]): any;
 
-  _subscribeSelector<R>(selector: (t: this) => R, compute: (selected: R) => void, initCall? : boolean): void;
+  _subscribeSelector<R>(selector: (t: this) => R, compute: (selected: R) => void, initCall?: boolean): void;
 
-  _subscribe(listener: (value: this, updatedKey: Keys<T>) => void, initCall? : boolean): () => void;
+  _subscribe(listener: (value: this, updatedKey: Keys<T>) => void, initCall?: boolean): () => void;
 
   _subscribeKey<K extends Keys<T>>(
     key: K,
     listener: (value: KeyAccessType<T, K>, updatedKey: Keys<T>) => void,
-    initCall? : boolean
+    initCall?: boolean
   ): () => void;
 
   _subscribeKeys(
     keys: Keys<T>[],
     listener: (value: this, updatedKey: Keys<T>) => void,
-    initCall? : boolean
+    initCall?: boolean
   ): () => void;
 
 
@@ -254,7 +244,6 @@ export interface StateBaseInterface<T> {
 
   _registerChild<P extends Keys<T>>(propOrId: P, child: KeyAccessType<T, P>): void;
 
-  _use(): this;
   _useKey<K extends Keys<T>>(prop: K): KeyAccessTypeWithNull<T, K>;
 
   /**
@@ -264,14 +253,21 @@ export interface StateBaseInterface<T> {
   _useSelector<R>(selector: (o: this) => R): R;
 }
 
+export function useNoboState<T>(state: T): T;
+export function useNoboState(state: any, prop?: any): any;
 export function useNoboState(state: any, prop?: any) {
 
+  // if (!prop)
+  //   console.log("_use", state);
   const [, setRefreshToggle] = useState({});
-  const [value, setValue] = useState(prop ? state._get(prop) : state);
+
+  const getValue = () => prop ? state._get(prop) : state;
+
+  const [value, setValue] = useState(getValue());
 
   useEffect(() => {
     let listener = _.throttle(() => {
-      setValue(prop ? state._get(prop) : state);
+      setValue(getValue());
       setRefreshToggle({});
     }, 50);
 

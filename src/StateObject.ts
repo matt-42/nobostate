@@ -66,9 +66,11 @@ export type StateObject<T> = StateObjectInterface<T> & T;
 // let t = obj._use("xxx")
 
 export function createProxy<T extends Object>(wrapped: T) {
-  return new Proxy(wrapped, {
+  const proxy = new Proxy(wrapped, {
     get: (target, prop, receiver) => {
       let res = Reflect.get(target, prop);
+      // if (res === "_use")
+      //   return () => useNoboState(receiver);
       if (typeof res === "function")
         return res.bind(target);
       else
@@ -76,6 +78,7 @@ export function createProxy<T extends Object>(wrapped: T) {
       // return (receiver as any)[prop];
     },
     set: (target, prop, value, receiver) => {
+    // console.log(' set ',  prop, ' to ', value);
       if ((prop as string).startsWith("_"))
         (target as any)[prop as string] = value;
       else
@@ -84,4 +87,7 @@ export function createProxy<T extends Object>(wrapped: T) {
       return true;
     },
   });
+
+  // (wrapped as any)._use = proxy;
+  return proxy;
 }

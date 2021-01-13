@@ -78,9 +78,9 @@ export function revive(state: unwrappedAny): any {
   // map.
   else if (anyState._stateTable !== undefined) {
     let table = stateTable();
-    console.log(anyState._stateTable.length, "ids"); 
+    // console.log(anyState._stateTable.length, "ids"); 
     anyState._stateTable.forEach((elt: any) => {
-      console.log("revive id ", elt._stateObject.id, elt._stateObject);
+      // console.log("revive id ", elt._stateObject.id, elt._stateObject);
       table.insert(revive(elt)); 
     });
     return table as any;

@@ -69,14 +69,14 @@ export function stateTableMixin<T extends HasId<any>>() {
 
         // Compute new id if needed.
         if ((value.id as any as NewIntId)._isNewIntId === true) {
-          let id = this._lastInsertId || 1;
+          let id = (this._lastInsertId || 0) + 1;
           while (this.has(id)) id++;
-          value = {...value, id};
+          value = { ...value, id };
         }
         if ((value.id as any as NewStringId)._isNewStringId === true) {
-          let id = parseInt(this._lastInsertId || "1");
+          let id = parseInt(this._lastInsertId || "0") + 1;
           while (this.has(id.toString())) id++;
-          value = {...value, id: id.toString() };
+          value = { ...value, id: id.toString() };
         }
 
         // check if id already exists.
@@ -86,6 +86,8 @@ export function stateTableMixin<T extends HasId<any>>() {
         // Insert a new placeholder stateObject in the map.
         let elt = anyStateObject() as any as StateObject<T>;
         super.set(value.id, elt);
+
+        // console.log(`${this._props?._path.join('/')}: insert id`, value.id);
 
         // Update the placeholder with the new element attributes.
         // updateState(this, value.id, value);
@@ -99,7 +101,7 @@ export function stateTableMixin<T extends HasId<any>>() {
         this._notifySubscribers(id, elt);
         // console.log(this._getRootState());
         // console.log(this._getRootState()._history);
-        [...this._insertListeners].forEach(f => f(elt));
+        [...this._insertListeners].forEach(f => this._runNotification(f, elt));
 
         const history = this._getRootState()._history;
         if (history && this._props)
@@ -148,7 +150,7 @@ export function stateTableMixin<T extends HasId<any>>() {
     assertGet(id: Id) {
       let res = this.get(id);
       if (!res)
-        throw new Error(`StateTable get error: id ${id.toString()} does not exists`);
+        throw new Error(`StateTable get error: id ${id.toString()} does not exists in table ${this._props._path?.join('/')}`);
       return res;
     }
 
@@ -165,34 +167,48 @@ export function stateTableMixin<T extends HasId<any>>() {
     }
 
     remove(id: Id) {
-      console.log(`${this._props._path.join('/')}: remove id`, id);
-      console.trace();
+      let root = this._getRootState();
+      let eltToDelete = this.assertGet(id);
+
+      // Avoid infinit loop when own == true and onRefDeleted == cascade.
+      if (eltToDelete.__beingRemoved__) return;
+      eltToDelete.__beingRemoved__ = true;
+
+      // console.trace();
       // Group all actions related to 1 remove.
-      this._getRootState()._history.group(`remove-${this._props._path.join('-')}-${id}`, () => {
+      root._transaction(() => {
 
-        let eltToDelete = this.assertGet(id);
+        root._history.group(`remove-${this._props._path.join('-')}-${id}`, () => {
 
-        [...this._thisSubscribers].forEach(f => f(this, id));
-        this._parentListener?.();
 
-        // this._insertListeners.forEach(f => f(eltToDelete._wrapped));
-        
-        // call the on delete listeners.
-        // clone the array because listeners can remove themselves from the array, breaking foreach.
-        [...eltToDelete._removeListeners].forEach((f: any) => f(eltToDelete));
 
-        // Then we remove the element from the table.
-        // Note: we must do it after removelisteners because they may need to retreive info
-        // about the element being removed.
-        this.delete(id);
-        
-        this._getRootState()._history.push({
-          action: "remove",
-          propId: this._props,
-          target: this as any,
-          element: eltToDelete
-        } as HistoryTableAction);
+          // this._insertListeners.forEach(f => f(eltToDelete._wrapped));
+
+          // call the on delete listeners.
+          // clone the array because listeners can remove themselves from the array, breaking foreach.
+
+          // [...eltToDelete._removeListeners].forEach((f: any) => this._runNotification(f, eltToDelete));
+          [...eltToDelete._removeListeners].forEach((f: any) => f(eltToDelete));
+
+          // Then we remove the element from the table.
+          // Note: we must do it after removelisteners because they may need to retreive info
+          // about the element being removed.
+          // console.log(`${this._props._path.join('/')}: remove id`, id);
+          this.delete(id);
+
+          [...this._thisSubscribers].forEach(f => this._runNotification(f, this, id));
+          if (this._parentListener)
+            this._runNotification(this._parentListener);
+
+          this._getRootState()._history.push({
+            action: "remove",
+            propId: this._props,
+            target: this as any,
+            element: eltToDelete
+          } as HistoryTableAction);
+        });
       });
+      eltToDelete.__beingRemoved__ = undefined;
     }
 
     _useMapSelector<R>(mapSelector: (o: StateObject<T>) => R) {

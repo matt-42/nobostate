@@ -199,7 +199,7 @@ export class StateReference<T extends HasId<any>>
 
     if (notify) {
       this._notifyThisSubscribers();
-      this._refListeners.forEach(l => l(this.ref));
+      this._refListeners.forEach(l => this._runNotification(l, this.ref));
     }
 
   }

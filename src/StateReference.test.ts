@@ -333,7 +333,7 @@ test('back-reference', () => {
 });
 
 
-test('check-multiple-owner', () => {
+test('_subscribeRef', () => {
 
   let state = createState({
     table1: stateTable<Test>(),
@@ -367,5 +367,66 @@ test('check-multiple-owner', () => {
   dispose();
   objWithRef.ref.set(obj);
   expect(called).toBe(3);
+
+});
+
+
+
+test('onRefDeleted-called-before-element-removal', () => {
+
+
+  let called = 0;
+  let state = createState({
+    table1: stateTable<Test>(),
+    table2: stateTable<{ id: string, ref: StateReference<Test> }>(),
+  },
+    {
+      setSpecs: (props, specs) => {
+        specs.reference(props.table2.ref, props.table1, { own: true, onRefDeleted: (elt, removed) => {
+          called++;
+          expect(state.table1.has(removed.id)).toBe(true);
+        }});
+      }
+    });
+
+  
+  let objWithRef = state.table2.insert({ id: "1", ref: stateReference<Test>({id: newStringId(), text: "x"}) });
+
+  state.table1.remove(objWithRef.ref.ref.id);
+
+  expect(called).toBe(1);
+
+  expect(state.table1.size).toBe(0);
+  state.table2.remove(objWithRef.id);
+  expect(state.table2.size).toBe(0);
+
+  objWithRef = state.table2.insert({ id: "1", ref: stateReference<Test>({id: newStringId(), text: "x"}) });
+  state.table2.remove(objWithRef.id);
+  expect(called).toBe(2);
+  expect(state.table1.size).toBe(0);
+});
+
+
+test('own-cascade', () => {
+
+
+  let state = createState({
+    table1: stateTable<Test>(),
+    table2: stateTable<{ id: string, ref: StateReference<Test> }>(),
+  },
+    {
+      setSpecs: (props, specs) => {
+        specs.reference(props.table2.ref, props.table1, { own: true, onRefDeleted: "cascade"});
+      }
+    });
+
+  
+  let objWithRef = state.table2.insert({ id: "1", ref: stateReference<Test>({id: newStringId(), text: "x"}) });
+
+  state.table1.remove(objWithRef.ref.ref.id);
+
+
+  expect(state.table1.size).toBe(0);
+  expect(state.table2.size).toBe(0);
 
 });

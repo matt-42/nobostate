@@ -38,16 +38,65 @@ export class RootStateImpl<T> extends stateObjectMixin<{}>() {
   }
 
   _inTransaction: boolean = false;
-  _transactionCompleteListeners = new Map<any, () => void>();
+  _transactionCompleteListeners = new Map<(...args: any[]) => void, any[][]>();
 
-  _beginTransaction() { this._inTransaction = true; }
-  _commitTransaction() { 
-    this._transactionCompleteListeners.forEach(l => l());
-    this._transactionCompleteListeners.clear();
-    this._inTransaction = false; 
+  _beginTransaction() {
+    this._inTransaction = true;
+    // console.log("Start transaction");
   }
-  _onTransactionComplete(key: any, listener: () => void) { 
-    this._transactionCompleteListeners.set(key, listener);
+  _commitTransaction() {
+    // console.log("END transaction start");
+
+    while (this._transactionCompleteListeners.size) {
+      // console.log("this._transactionCompleteListeners.size", this._transactionCompleteListeners.size);
+      this._transactionCompleteListeners.forEach((argsArray, listener) => {
+        const clone = [...argsArray];
+        argsArray.length = 0;
+        // console.log("pop _transactionCompleteListeners");
+        clone.forEach(args => listener(...args));
+        if (argsArray.length === 0)
+          this._transactionCompleteListeners.delete(listener);
+      });
+    }
+
+    // this._transactionCompleteListeners.clear();
+    // console.log("END transaction");
+    this._inTransaction = false;
+  }
+  // _onTransactionComplete(key: any, listener: () => void) { 
+  //   this._transactionCompleteListeners.set(key, listener);
+  // }
+  _transaction(transactionBody: () => void) {
+    if (this._inTransaction)
+      transactionBody();
+    else {
+      try {
+        this._beginTransaction();
+        transactionBody();
+      } finally {
+        this._commitTransaction();
+      }
+    }
+  }
+
+  _notification(listener: (...args: any[]) => void, ...args: any[]) {
+    if (!this._inTransaction)
+      listener(...args);
+    else {
+      let argsArray = this._transactionCompleteListeners.get(listener) as any[][];
+      if (!argsArray) {
+        argsArray = [];
+        this._transactionCompleteListeners.set(listener, argsArray);
+      }
+      if (!argsArray)
+        throw new Error();
+      // Only push args if it does not already exists.
+      // console.log(args);
+      // console.log(argsArray);
+      if (-1 === argsArray.findIndex(elt => _.isEqual(elt, args)))
+        argsArray.push(args);
+    }
+
   }
 }
 

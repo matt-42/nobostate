@@ -41,13 +41,14 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
 
       super._setProps(props);
 
+
       this._parent._onDelete(() => {
         // dispose all refs.
         for (let disposers of this._refDisposers.values())
           disposers.forEach(f => f());
 
         if (this._specs()._own) {
-
+          // console.log(this);
           // remove refs when we own the ref and when the parent stateobject is deleted.
           this.forEach(ref => (ref._parent as StateTable<T>).remove(ref.id));
         }
