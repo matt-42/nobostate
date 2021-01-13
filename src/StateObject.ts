@@ -36,12 +36,24 @@ export function stateObjectMixin<T>() {
         updateState(this, k, value[k]);
     }
 
+    _registerChild(propOrId: any, child: any) {
+      if ((child as any)._isStateBase) {
+        let childBase = child as any;
+        // when a child prop change.
+        // we notify childs subscriber and the parent.
+        childBase._parent = createStateObjectProxy(this);
+        childBase._parentListener = () => {
+          this._notifySubscribers(propOrId, child);
+        };
+      }
+    }
+
   }
 };
 
 class AnyStateObject extends stateObjectMixin<{}>() { };
 export function anyStateObject() {
-  return createProxy(new AnyStateObject({}));
+  return createStateObjectProxy(new AnyStateObject({}));
 }
 
 export interface StateObjectInterface<T> extends StateBaseInterface<T> {
@@ -65,7 +77,7 @@ export type StateObject<T> = StateObjectInterface<T> & T;
 // const obj = new (stateObjectMixin(X));
 // let t = obj._use("xxx")
 
-export function createProxy<T extends Object>(wrapped: T) {
+export function createStateObjectProxy<T extends Object>(wrapped: T) {
   const proxy = new Proxy(wrapped, {
     get: (target, prop, receiver) => {
       let res = Reflect.get(target, prop);

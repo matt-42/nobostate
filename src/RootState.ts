@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { NoboHistory } from "./history";
 import { propagatePropIds, PropSpec } from "./prop";
-import { anyStateObject, createProxy, StateObject, stateObjectMixin } from "./StateObject";
+import { anyStateObject, createStateObjectProxy, StateObject, stateObjectMixin } from "./StateObject";
 import { revive, reviveReferences } from "./unwrap_revive";
 import { updateState } from "./updateState";
 
@@ -104,7 +104,7 @@ export type RootState<T> = StateObject<T> & RootStateImpl<T>;
 
 export function makeRootState<T>(state: T, propId: PropSpec): RootState<T> {
 
-  let wrapped = createProxy(new RootStateImpl(state));
+  let wrapped = createStateObjectProxy(new RootStateImpl(state));
 
   // wrapped._update(state);
   // for (let k in state)
