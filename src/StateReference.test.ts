@@ -352,9 +352,9 @@ test('_subscribeRef', () => {
   let called = 0;
   let dispose = objWithRef.ref._subscribeRef(ref => { 
     called++; 
-    if (called === 1) expect(ref).toBe(obj);
-    if (called === 2) expect(ref).toBe(obj1);
-    if (called === 3) expect(ref).toBe(null);
+    if (called === 1) expect(ref.ref).toBe(obj);
+    if (called === 2) expect(ref.ref).toBe(obj1);
+    if (called === 3) expect(ref.ref).toBe(null);
   });
 
   objWithRef.ref.set(obj);

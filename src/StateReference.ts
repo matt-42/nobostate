@@ -1,48 +1,8 @@
 import _ from "lodash";
 import { ReferenceSpec, PropSpec } from "./prop";
-import { StateBaseInterface, stateBaseMixin } from "./StateBase";
+import { StateBaseInterface, stateBaseMixin, useNoboState } from "./StateBase";
 import { StateObject } from "./StateObject";
 import { HasId, IdType, StateTable } from "./StateTable";
-
-
-// type FKGetReturnType<T, RefIdType> = RefIdType extends null ? T | null : T;
-
-
-// let robot = stateObject({
-//   id: -1,
-//   frame: (stateReference, stateReferenceNotNull)<Frame>({
-//     matrix: [0,1,2,3,4],
-
-//   })
-// }, {
-//   setupSpecs: (props, specs) => {
-//     specs.foreignKey(props.robots.frame, props.frames, {
-//       nullable: true,
-//       onRefRemoved: "cascade"|"set-null"|(_this : Robot, removed: Frame) => { },
-//       onThisRemoved: "cascade",
-//     })
-//   }
-// });
-
-// robot.frame.matrix = [2,4,5];
-// robot.frame._set(frameId|null);
-
-// let staticObject = stateObject({
-//   id: -1,
-//   frames: stateManyReferences<Frame>([{
-//     matrix: [0,1,2,3,4],
-//   }])
-// }, {
-//   setupSpecs: (props, specs) => {
-//     specs.manyReferences(props.robots.frame, props.frames, {
-//       onRefRemoved: "cascade"|"set-null"|(_this : Robot, removed: Frame) => { },
-//       onThisRemoved: "cascade",
-//     })
-//   }
-// });
-
-// object.frames[1]._push({id: -1, ...});
-// object.frames[1]._remove(f => f.id === 42);
 
 // Nullable foreign key.
 export class StateReference<T extends HasId<any>>
@@ -62,7 +22,7 @@ export class StateReference<T extends HasId<any>>
 
   _previousSetArgument: IdType<T> | T | null = null;
 
-  _refListeners: ((ref: StateObject<T> | null) => void)[] = [];
+  _refListeners: ((ref: this) => void)[] = [];
 
   constructor(idOrObj = null as IdType<T> | T | StateObject<T> | null) {
     super();
@@ -115,7 +75,7 @@ export class StateReference<T extends HasId<any>>
       (this._ref._parent as StateTable<T>).remove(this._ref.id);
   }
 
-  _subscribeRef(listener: (ref: StateObject<T> | null) => void) {
+  _subscribeRef(listener: (ref: this) => void) {
     this._refListeners.push(listener);
     return () => {
       _.remove(this._refListeners, l => l === listener);
@@ -199,7 +159,7 @@ export class StateReference<T extends HasId<any>>
 
     if (notify) {
       this._notifyThisSubscribers();
-      this._refListeners.forEach(l => this._runNotification(l, this.ref));
+      this._refListeners.forEach(l => this._runNotification(l, this));
     }
 
   }
@@ -215,7 +175,7 @@ export class StateReferenceNotNullImpl<T extends HasId<any>>
   set(idOrNewObj: IdType<T> | T | StateObject<T>) {
     super.set(idOrNewObj)
     if (!this._ref)
-      throw new Error("StateForeignNotNull::set resulted in a null reference.");
+      throw new Error("StateReferenceNotNull::set resulted in a null reference.");
   }
 }
 
@@ -230,4 +190,10 @@ export function stateReferenceNotNull<T extends HasId<any>>(id: IdType<T> | T | 
 }
 export function nullStateReference(): StateReference<any> {
   return stateReference<any>(null);
+}
+
+export function useNoboRef<T extends HasId<any>>(state: StateReference<T>): StateReference<T>;
+export function useNoboRef<T extends HasId<any>>(state: StateReferenceNotNull<T>): StateReferenceNotNull<T>;
+export function useNoboRef<T extends HasId<any>>(state: any) : any {
+  return useNoboState(state, "__ref__");
 }

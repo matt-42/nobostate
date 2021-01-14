@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { NoboHistory } from "./history";
 import { PropSpec, StatePropIdentifiers } from "./prop";
 import { RootState } from "./RootState";
@@ -172,6 +172,11 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
     }
 
     _useKey<K extends ThisKeys>(prop: K): ThisKeyAccessTypeWithNull<K> { return useNoboState(this, prop); }
+    _useKeys<K extends Array<ThisKeys>>(...keys: K) : { [Key in keyof K] : ThisKeyAccessTypeWithNull<Key> } { 
+      //let keys = props.map(p => this._useKey(p));
+      return useNoboStateKeys(this, keys);
+      // return null as any
+    }
 
     /**
      * Refresh everytime selector return a different value.
@@ -180,19 +185,34 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
     _useSelector<R>(selector: (o: this) => R) {
       const [, setRefreshToggle] = useState({});
       const [value, setValue] = useState(selector(this));
+      const ctx = useMemo(() => { return { prev: null as any}; }, []);
+
       useEffect(() => {
-        let prev: any = null;
-        return this._subscribe(_.throttle(() => {
+        return this._subscribe(_.throttle(
+          () => {
           let next = selector(this);
-          if (!_.isEqual(prev, next)) {
-            prev = next;
+          if (!_.isEqual(ctx.prev, next)) {
+            ctx.prev = next;
             setValue(selector(this));
             setRefreshToggle({});
           }
 
-        }, 50, { trailing: true }));
+        }
+        , 50, { trailing: true })
+        );
       }, []);
+
+      // Run the selector at every render to be sure we are in sync.
+      let actualValue = selector(this);
+      if (!_.isEqual(actualValue, value))
+      {
+        setValue(actualValue);
+        ctx.prev = actualValue;
+        return actualValue;
+      }
+
       return value;
+      // if (actualValue)
     }
   }
 }
@@ -245,6 +265,7 @@ export interface StateBaseInterface<T> {
   _registerChild<P extends Keys<T>>(propOrId: P, child: KeyAccessType<T, P>): void;
 
   _useKey<K extends Keys<T>>(prop: K): KeyAccessTypeWithNull<T, K>;
+  _useKeys<K extends Array<Keys<T>>>(...keys: K) : { [Key in keyof K] : KeyAccessType<T, Key> };
 
   /**
    * Refresh everytime selector return a different value.
@@ -261,7 +282,11 @@ export function useNoboState(state: any, prop?: any) {
   //   console.log("_use", state);
   const [, setRefreshToggle] = useState({});
 
-  const getValue = () => prop ? state._get(prop) : state;
+  const getValue = () => {
+    if (prop === "__ref__") return state;
+    else if (prop) return state._get(prop)
+    else return state;
+  }
 
   const [value, setValue] = useState(getValue());
 
@@ -271,11 +296,37 @@ export function useNoboState(state: any, prop?: any) {
       setRefreshToggle({});
     }, 50);
 
-    if (prop)
+    if (prop === "__ref__")
+      return state._subscribeRef(listener);
+    else if (prop)
       return state._subscribeKey(prop, listener);
 
     else
       return state._subscribe(listener);
+
+  }, []);
+  return value;
+}
+
+export function useNoboStateKeys(state: any, keys: any[]) {
+
+  const [, setRefreshToggle] = useState({});
+
+  const getValue = () => {
+    let res  = {} as any;
+    keys.forEach(k => res[k] = state._get(k));
+    return res;
+  }
+
+  const [value, setValue] = useState(getValue());
+
+  useEffect(() => {
+    let listener = _.throttle(() => {
+      setValue(getValue());
+      setRefreshToggle({});
+    }, 50);
+
+    keys.forEach(k => state._subscribeKey(k, listener));
 
   }, []);
   return value;
