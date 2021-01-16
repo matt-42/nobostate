@@ -294,7 +294,7 @@ export function useNoboState(state: any, prop?: any) {
     let listener = _.throttle(() => {
       setValue(getValue());
       setRefreshToggle({});
-    }, 50);
+    }, 16);
 
     if (prop === "__ref__")
       return state._subscribeRef(listener);
@@ -324,7 +324,7 @@ export function useNoboStateKeys(state: any, keys: any[]) {
     let listener = _.throttle(() => {
       setValue(getValue());
       setRefreshToggle({});
-    }, 50);
+    }, 16);
 
     keys.forEach(k => state._subscribeKey(k, listener));
 

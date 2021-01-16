@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { useEffect, useState } from "react";
 import { HistoryTableAction } from "./history";
 import { propagatePropIds } from "./prop";
 import { StateBaseInterface, stateBaseMixin } from "./StateBase";
@@ -28,7 +29,27 @@ export function stateTableMixin<T extends HasId<any>>() {
     _isStateTable = true;
     _lastInsertId: IdType<T> | null = null;
 
-    _useIds() { return this._useSelector(table => [...table.keys()]); }
+
+    _keyDeleteListeners: (() => void)[] = [];
+    onKeyDelete(listener: () => void): () => void {
+      this._keyDeleteListeners.push(listener);
+      return () => _.remove(this._keyDeleteListeners, l => l === listener);
+    }
+
+    _useIds() {
+      const [ids, setIds] = useState<IdType<T>[]>([...this.keys()]);
+      const update = () => setIds([...this.keys()]);
+
+      useEffect(() => {
+        let disposers = [this.onInsert(update), this.onKeyDelete(update)];
+        return () => disposers.forEach(f => f());
+      }, []);
+      
+      return ids;
+      // This use to be simpler with useSelector but the selector is also run of every update
+      // of every table object which is useless.
+      // return this._useSelector(table => [...table.keys()]); 
+    }
     ids() { return [...this.keys()]; }
 
     map<R>(f: (o: StateObject<T>) => R) { return [...this.values()].map(f); }
@@ -196,6 +217,7 @@ export function stateTableMixin<T extends HasId<any>>() {
           // console.log(`${this._props._path.join('/')}: remove id`, id);
           this.delete(id);
 
+          this._keyDeleteListeners.forEach(f => f());
           [...this._thisSubscribers].forEach(f => this._runNotification(f, this, id));
           if (this._parentListener)
             this._runNotification(this._parentListener);
