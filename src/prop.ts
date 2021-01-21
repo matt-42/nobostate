@@ -24,7 +24,7 @@ export type TablePropSpec<T> = PropSpec & {
 
 export type StatePropIdentifiers2<T, Parent = never> =
   T extends StateReferenceNotNull<infer V> ? ReferenceSpec<V, Parent> :
-  T extends StateReference<infer V> ? ReferenceSpec<V, Parent> :
+  T extends StateReference<infer V> ? ReferenceSpec<V, Parent> & { [K in keyof V]: StatePropIdentifiers2<V[K], StateObject<V>> }:
   T extends StateReferenceArray<infer V> ? ReferenceSpec<V, Parent> :
   T extends StateObject<infer V> ? PropSpec & { [K in keyof V]: StatePropIdentifiers2<V[K], StateObject<V>> } :
   T extends StateObjectArray<infer V> ? PropSpec & StatePropIdentifiers2<StateObject<V>> :
@@ -41,6 +41,7 @@ export type StatePropIdentifiers<T, Parent = never> =
   T extends StateArray<any> ? PropSpec :
   T extends StateTable<infer V> ? TablePropSpec<V> & StatePropIdentifiers2<StateObject<V>> :
 
+  T extends { __stateReference__: infer O} ? PropSpec & StatePropIdentifiers2<StateReference<O>> :
   T extends (infer O)[] ? PropSpec & StatePropIdentifiers2<StateObject<O>> :
   T extends Array<infer O> ? PropSpec & StatePropIdentifiers2<StateObject<O>> :
   T extends Map<any, infer O> ? TablePropSpec<O> & StatePropIdentifiers2<StateObject<O>> :

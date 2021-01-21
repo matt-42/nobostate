@@ -17,7 +17,7 @@ import { StateTable } from "./StateTable";
 
 export function updateState(dst: any, prop: any, src: any) {
 
-  // console.log('udate state! ', dst, src);
+  // console.log('update state! ', prop, src, dst);
   const isPrimitive = (o: any) => !(o?._isStateObject ||
     o?._isStateArray ||
     o?._isStateTable);

@@ -1,5 +1,4 @@
 import _ from "lodash";
-import { useEffect, useState } from "react";
 import { HistoryTableAction } from "./history";
 import { propagatePropIds } from "./prop";
 import { StateBaseInterface, stateBaseMixin } from "./StateBase";
@@ -36,20 +35,6 @@ export function stateTableMixin<T extends HasId<any>>() {
       return () => _.remove(this._keyDeleteListeners, l => l === listener);
     }
 
-    _useIds() {
-      const [ids, setIds] = useState<IdType<T>[]>([...this.keys()]);
-      const update = () => setIds([...this.keys()]);
-
-      useEffect(() => {
-        let disposers = [this.onInsert(update), this.onKeyDelete(update)];
-        return () => disposers.forEach(f => f());
-      }, []);
-      
-      return ids;
-      // This use to be simpler with useSelector but the selector is also run of every update
-      // of every table object which is useless.
-      // return this._useSelector(table => [...table.keys()]); 
-    }
     ids() { return [...this.keys()]; }
 
     map<R>(f: (o: StateObject<T>) => R) { return [...this.values()].map(f); }
@@ -233,19 +218,13 @@ export function stateTableMixin<T extends HasId<any>>() {
       eltToDelete.__beingRemoved__ = undefined;
     }
 
-    _useMapSelector<R>(mapSelector: (o: StateObject<T>) => R) {
-      return this._useSelector(table => [...table.values()].map(mapSelector));
-    }
   }
 }
-
-
 
 export interface StateTableInterface<T> extends StateBaseInterface<Map<IdType<T>, StateObject<T>>> {
 
   _isStateTable: boolean;
 
-  _useIds(): IdType<T>[];
   ids(): IdType<T>[];
 
   map<R>(f: (o: StateObject<T>) => R): R[];
@@ -271,7 +250,7 @@ export interface StateTableInterface<T> extends StateBaseInterface<Map<IdType<T>
   _set(id: IdType<T>, val: StateObject<T>): this;
 
   remove(id: IdType<T>): void;
-  _useMapSelector<R>(mapSelector: (o: StateObject<T>) => R): R[];
+  onKeyDelete(listener: () => void): () => void;
 }
 
 export type StateTable<T> = StateTableInterface<T> & Map<IdType<T>, StateObject<T>>; 

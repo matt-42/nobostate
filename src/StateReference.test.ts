@@ -19,7 +19,7 @@ test('null-ref', () => {
   state.table1.insert({ id: "1", text: "xxx" });
   let obj = state.table2.insert({ id: "1", ref: stateReference<Test>("1") });
 
-  obj.ref = nullStateReference();
+  obj.ref = stateReference<Test>(null);
   expect(obj.ref.ref).toBe(null);
 
   expect(state.table1.size).toBe(0);
@@ -81,7 +81,7 @@ test('update-ref-with-equal', () => {
   state.table1.insert({ id: "2", text: "xxx" });
   let obj = state.table2.insert({ id: "1", testRef: stateReference<Test>("1") });
 
-  obj.testRef = nullStateReference();
+  obj.testRef = stateReference<Test>(null);
   expect(obj.testRef.ref).toBe(null);
   expect(state.table1.size).toBe(2);
 
