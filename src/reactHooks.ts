@@ -1,14 +1,12 @@
 import _ from "lodash";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { StateArray, StateObjectArray } from "./StateArray";
-import { KeyAccessType, Keys, StateBaseInterface } from "./StateBase";
-import { StateObject, StateObjectInterface } from "./StateObject";
+import { Keys, StateBaseInterface } from "./StateBase";
+import { StateObject } from "./StateObject";
 import { StateReference, StateReferenceNotNull } from "./StateReference";
 import { StateReferenceArray } from "./StateReferenceArray";
 import { HasId, IdType, StateTable } from "./StateTable";
 import { unwrapState } from "./unwrap_revive";
-
-type StateTypes<T> = StateObject<T> | StateTable<T> | StateArray<T> | StateObjectArray<T> | StateReference<T> | StateReferenceNotNull<T> | StateReferenceArray<T>
 
 export function useNoboState<T>(state: T): T {
   return useNoboStateImpl(state);
