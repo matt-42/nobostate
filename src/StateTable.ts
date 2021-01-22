@@ -127,16 +127,20 @@ export function stateTableMixin<T extends HasId<any>>() {
       else return insert_code();
     }
 
-    clone(id: Id) {
+    clone(id: Id, newId_? : Id) {
 
       let obj = this.assertGet(id);
 
-      // find a new unique id.
-      let toIdType = typeof obj.id === "number" ? (i: number) => i : (i: number) => i.toString();
-      let i = this.size;
-      while (this.has(toIdType(i) as Id))
+      let newId = newId_ as Id;
+      if (!newId) {
+
+        // find a new unique id.
+        let toIdType = typeof obj.id === "number" ? (i: number) => i : (i: number) => i.toString();
+        let i = this.size;
+        while (this.has(toIdType(i) as Id))
         i++;
-      let newId = toIdType(i);
+        newId = toIdType(i) as Id;
+      }
 
       let clone: any = unwrapState(obj);
       clone._stateObject.id = newId;
@@ -240,7 +244,7 @@ export interface StateTableInterface<T> extends StateBaseInterface<Map<IdType<T>
 
   insert(elt: T): StateObject<T>;
 
-  clone(id: IdType<T>): StateObject<T>;
+  clone(id: IdType<T>, newId? : number): StateObject<T>;
   set(id: IdType<T>, value: StateObject<T>): this;
 
   assertGet(id: IdType<T>): StateObject<T>;
