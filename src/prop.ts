@@ -26,17 +26,17 @@ export type StatePropIdentifiers2<T, Parent = never> =
   T extends StateReferenceNotNull<infer V> ? ReferenceSpec<V, Parent> :
   T extends StateReference<infer V> ? ReferenceSpec<V, Parent> & { [K in keyof V]: StatePropIdentifiers2<V[K], StateObject<V>> }:
   T extends StateReferenceArray<infer V> ? ReferenceSpec<V, Parent> :
-  T extends StateObject<infer V> ? PropSpec & { [K in keyof V]: StatePropIdentifiers2<V[K], StateObject<V>> } :
+  T extends StateObject<infer V> ? PropSpec & { [K in keyof V]: StatePropIdentifiers2<V[K], T> } :
   T extends StateObjectArray<infer V> ? PropSpec & StatePropIdentifiers2<StateObject<V>> :
   T extends StateArray<any> ? PropSpec :
   T extends StateTable<infer V> ? TablePropSpec<V> & StatePropIdentifiers2<StateObject<V>> :
   PropSpec;
 
-export type StatePropIdentifiers<T, Parent = never> =
-  T extends StateReferenceNotNull<infer V> ? ReferenceSpec<V, Parent> :
-  T extends StateReference<infer V> ? ReferenceSpec<V, Parent> :
-  T extends StateReferenceArray<infer V> ? ReferenceSpec<V, Parent> :
-  T extends StateObject<infer V> ? PropSpec & { [K in keyof V]: StatePropIdentifiers2<V[K], StateObject<V>> } :
+export type StatePropIdentifiers<T> =
+  T extends StateReferenceNotNull<infer V> ? ReferenceSpec<V, never> :
+  T extends StateReference<infer V> ? ReferenceSpec<V, never> :
+  T extends StateReferenceArray<infer V> ? ReferenceSpec<V, never> :
+  // Don't know why this does not compile. T extends StateObject<infer V> ? PropSpec & { [K in keyof V]: StatePropIdentifiers2<V[K]> } :
   T extends StateObjectArray<infer V> ? PropSpec & StatePropIdentifiers2<StateObject<V>> :
   T extends StateArray<any> ? PropSpec :
   T extends StateTable<infer V> ? TablePropSpec<V> & StatePropIdentifiers2<StateObject<V>> :

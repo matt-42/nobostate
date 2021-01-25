@@ -50,7 +50,7 @@ type ExtractKeys<T> =
   T extends StateTable<infer B> ? IdType<B> :
   T extends StateObject<infer B> ? keyof B :
   T extends StateObjectArray<infer B> ? number :
-  T extends StateReferenceArray<infer B> ? number :
+  T extends StateArray<infer B> ? number :
   T extends StateReference<infer B> ? never :
   T extends StateReferenceNotNull<infer B> ? never :
   T extends StateReferenceArray<infer B> ? number :
@@ -60,7 +60,7 @@ type KeyAccessType2<T, K> =
   T extends StateTable<infer B> ? B :
   T extends StateObject<infer B> ? (K extends keyof B ? B[K] : never) :
   T extends StateObjectArray<infer B> ? number :
-  T extends StateReferenceArray<infer B> ? number :
+  T extends StateArray<infer B> ? number :
   T extends StateReference<infer B> ? never :
   T extends StateReferenceNotNull<infer B> ? never :
   T extends StateReferenceArray<infer B> ? number :

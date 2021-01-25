@@ -180,7 +180,7 @@ export interface StateBaseInterface<T> {
   // _props: StatePropIdentifiers<T> = null as any;
   _props: StatePropIdentifiers<T>;
 
-  _subscribers: {
+  _subscribers: { 
     [K: string]: ((value: any, key: Keys<T>) => void)[];
   };
   _thisSubscribers: ((value: any, key: Keys<T>) => void)[];

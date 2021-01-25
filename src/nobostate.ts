@@ -84,7 +84,7 @@ class SpecsBuilder {
 }
 
 export function createState<T>(state: T, options?: {
-  setSpecs?: (propIds: StatePropIdentifiers<StateObject<T>>, specs: SpecsBuilder) => void,
+  setSpecs?: (propIds: StatePropIdentifiers<T>, specs: SpecsBuilder) => void,
 })
   : RootState<T> {
 

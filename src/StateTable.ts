@@ -244,7 +244,7 @@ export interface StateTableInterface<T> extends StateBaseInterface<Map<IdType<T>
 
   insert(elt: T): StateObject<T>;
 
-  clone(id: IdType<T>, newId? : number): StateObject<T>;
+  clone(id: IdType<T>, newId? : IdType<T>): StateObject<T>;
   set(id: IdType<T>, value: StateObject<T>): this;
 
   assertGet(id: IdType<T>): StateObject<T>;
