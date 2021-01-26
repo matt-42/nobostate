@@ -125,7 +125,7 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
           // Setup on ref delete behaviors.
           refDisposer.push(ref._onDelete(() => {
             let spec = this._specs();
-            _.remove(this, r => r === ref);
+            this.remove(r => r === ref);
 
             if (typeof spec._onRefDeleted === "function") // CUSTOM CALLBACK.
               spec._onRefDeleted(this._parent, ref);
