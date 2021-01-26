@@ -143,7 +143,7 @@ function stateReferenceMixin<T extends HasId<any>>() {
         this._disposeRefOnDelete = this._ref._onDelete(() => {
           let spec = this._specs();
           if (spec._onRefDeleted === "set-null") // SET NULL
-            this._ref = null;
+            this.set(null);
           else if (spec._onRefDeleted === "cascade") // CASCADE
             (this._parent._parent as StateTable<T>).remove((this._parent as StateObject<T>).id)
           else if (typeof spec._onRefDeleted === "function") // CUSTOM CALLBACK.
@@ -178,8 +178,8 @@ export function stateReferenceNotNullMixin<T extends HasId<any>>() {
 
     set(idOrNewObj: IdType<T> | T | StateObject<T>) {
       super.set(idOrNewObj)
-      if (!this._ref)
-        throw new Error("StateReferenceNotNull::set resulted in a null reference.");
+      if (!this._ref && !this._parent?.__beingRemoved__)
+        throw new Error(`StateReferenceNotNull::set resulted in a null reference: ${this._props._path.join('/')}`);
     }
   }
 }

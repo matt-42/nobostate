@@ -10,7 +10,7 @@ export function stateObjectMixin<T>() {
   {
     _isStateObject = true;
     _removeListeners: ((o: T) => void)[] = [];
-    #backReferencesMap: { [p: number]: any } = {}
+    _backReferencesMap: { [p: number]: any } = {}
 
     constructor(src: T) {
       super();
@@ -18,12 +18,12 @@ export function stateObjectMixin<T>() {
     }
 
     _addBackReference<Parent>(p: ReferenceSpec<any, Parent>, obj: Parent): () => void {
-      this.#backReferencesMap[p._propId] ||= [];
-      this.#backReferencesMap[p._propId].push(obj);
-      return () => _.remove(this.#backReferencesMap[p._propId], o => o === obj);
+      this._backReferencesMap[p._propId] ||= [];
+      this._backReferencesMap[p._propId].push(obj);
+      return () => _.remove(this._backReferencesMap[p._propId], o => o === obj);
     }
     _backReferences<Parent>(p: ReferenceSpec<any, Parent>): Parent[] {
-      return this.#backReferencesMap[p._propId] || [];
+      return this._backReferencesMap[p._propId] || [];
     }
  
     _onDelete(listener: (o: T) => void) {

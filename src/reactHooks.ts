@@ -1,5 +1,6 @@
 import _ from "lodash";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { RootState } from "./RootState";
 import { StateArray, StateObjectArray } from "./StateArray";
 import { Keys, StateBaseInterface } from "./StateBase";
 import { StateObject } from "./StateObject";
@@ -49,6 +50,7 @@ export function useNoboStateImpl(state: any, prop?: any) {
 type ExtractKeys<T> =
   T extends StateTable<infer B> ? IdType<B> :
   T extends StateObject<infer B> ? keyof B :
+  T extends RootState<infer B> ? keyof B :
   T extends StateObjectArray<infer B> ? number :
   T extends StateArray<infer B> ? number :
   T extends StateReference<infer B> ? never :
@@ -59,6 +61,7 @@ type ExtractKeys<T> =
 type KeyAccessType2<T, K> =
   T extends StateTable<infer B> ? B :
   T extends StateObject<infer B> ? (K extends keyof B ? B[K] : never) :
+  T extends RootState<infer B> ? (K extends keyof B ? B[K] : never) :
   T extends StateObjectArray<infer B> ? number :
   T extends StateArray<infer B> ? number :
   T extends StateReference<infer B> ? never :
