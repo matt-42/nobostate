@@ -50,10 +50,10 @@ export class NoboHistory {
   startGroup() { this.grouping++; }
   endGroup() { this.grouping--; if (this.grouping < 0) throw new Error(); }
 
-  ignore(f: () => void) {
+  ignore<R>(f: () => R) : R {
     this.notRecording++;
     try {
-      f();
+      return f();
     } finally {
       this.notRecording--;
     }

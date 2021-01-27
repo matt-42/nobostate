@@ -177,7 +177,7 @@ export function stateReferenceNotNullMixin<T extends HasId<any>>() {
     }
 
     set(idOrNewObj: IdType<T> | T | StateObject<T>) {
-      super.set(idOrNewObj)
+      super.set(idOrNewObj);
       if (!this._ref && !this._parent?.__beingRemoved__)
         throw new Error(`StateReferenceNotNull::set resulted in a null reference: ${this._props._path.join('/')}`);
     }

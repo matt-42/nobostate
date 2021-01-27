@@ -72,7 +72,6 @@ export function stateTableMixin<T extends HasId<any>>() {
     insert(value: T): StateObject<T> {
 
       let insert_code = () => {
-
         // Compute new id if needed.
         if ((value.id as any as NewIntId)._isNewIntId === true) {
           let id = (this._lastInsertId || 0) + 1;
@@ -109,25 +108,29 @@ export function stateTableMixin<T extends HasId<any>>() {
         // console.log(this._getRootState()._history);
         [...this._insertListeners].forEach(f => this._runNotification(f, elt));
 
+
+        return elt;
+
+      }
+
+      if (this._getRootState()._history) {
+        let res = this._getRootState()._history.ignore(insert_code);
+
         const history = this._getRootState()._history;
         if (history && this._props)
           history.push({
             action: "insert",
             propId: this._props,
             target: this as any,
-            element: elt
+            element: res
           } as HistoryTableAction);
 
-        return elt;
-
+        return res;
       }
-
-      if (this._getRootState()._history)
-        return this._getRootState()._history.group(insert_code);
       else return insert_code();
     }
 
-    clone(id: Id, newId_? : Id) {
+    clone(id: Id, newId_?: Id) {
 
       let obj = this.assertGet(id);
 
@@ -138,7 +141,7 @@ export function stateTableMixin<T extends HasId<any>>() {
         let toIdType = typeof obj.id === "number" ? (i: number) => i : (i: number) => i.toString();
         let i = this.size;
         while (this.has(toIdType(i) as Id))
-        i++;
+          i++;
         newId = toIdType(i) as Id;
       }
 
@@ -184,13 +187,13 @@ export function stateTableMixin<T extends HasId<any>>() {
       if (eltToDelete.__beingRemoved__) return;
       eltToDelete.__beingRemoved__ = true;
 
+      // console.log("remove ", `remove-${this._props._path.join('-')}-${id}`);
       // console.trace();
-      // Group all actions related to 1 remove.
+      // Use a transaction so that no listeners is called in the middle of the removal.
       root._transaction(() => {
 
-        root._history.group(`remove-${this._props._path.join('-')}-${id}`, () => {
-
-
+        // Ignore all actions related to 1 remove.
+        root._history.ignore(() => {
 
           // this._insertListeners.forEach(f => f(eltToDelete._wrapped));
 
@@ -211,14 +214,17 @@ export function stateTableMixin<T extends HasId<any>>() {
           if (this._parentListener)
             this._runNotification(this._parentListener);
 
-          this._getRootState()._history.push({
-            action: "remove",
-            propId: this._props,
-            target: this as any,
-            element: eltToDelete
-          } as HistoryTableAction);
         });
+        // Record the remove in the history.
+        this._getRootState()._history.push({
+          action: "remove",
+          propId: this._props,
+          target: this as any,
+          element: eltToDelete
+        } as HistoryTableAction);
       });
+      // console.log("remove done ", `remove-${this._props._path.join('-')}-${id}`);
+
       eltToDelete.__beingRemoved__ = undefined;
     }
 
@@ -244,7 +250,7 @@ export interface StateTableInterface<T> extends StateBaseInterface<Map<IdType<T>
 
   insert(elt: T): StateObject<T>;
 
-  clone(id: IdType<T>, newId? : IdType<T>): StateObject<T>;
+  clone(id: IdType<T>, newId?: IdType<T>): StateObject<T>;
   set(id: IdType<T>, value: StateObject<T>): this;
 
   assertGet(id: IdType<T>): StateObject<T>;

@@ -46,18 +46,22 @@ export class RootStateImpl<T> extends stateObjectMixin<{}>() {
   }
   _commitTransaction() {
     // console.log("END transaction start");
+    // Do not record state update or listeners in history.
+    this._history.ignore(() => {
 
-    while (this._transactionCompleteListeners.size) {
-      // console.log("this._transactionCompleteListeners.size", this._transactionCompleteListeners.size);
-      this._transactionCompleteListeners.forEach((argsArray, listener) => {
-        const clone = [...argsArray];
-        argsArray.length = 0;
-        // console.log("pop _transactionCompleteListeners");
-        clone.forEach(args => listener(...args));
-        if (argsArray.length === 0)
-          this._transactionCompleteListeners.delete(listener);
-      });
-    }
+      while (this._transactionCompleteListeners.size) {
+        // console.log("this._transactionCompleteListeners.size", this._transactionCompleteListeners.size);
+        this._transactionCompleteListeners.forEach((argsArray, listener) => {
+          const clone = [...argsArray];
+          argsArray.length = 0;
+          // console.log("pop _transactionCompleteListeners");
+          clone.forEach(args => listener(...args));
+          if (argsArray.length === 0)
+            this._transactionCompleteListeners.delete(listener);
+        });
+      }
+
+    });
 
     // this._transactionCompleteListeners.clear();
     // console.log("END transaction");
@@ -81,7 +85,11 @@ export class RootStateImpl<T> extends stateObjectMixin<{}>() {
 
   _notification(listener: (...args: any[]) => void, ...args: any[]) {
     if (!this._inTransaction)
-      listener(...args);
+      // Do not record actions performed by listeners in history as
+      // they must be undone by listeners.
+      this._history.ignore(() => {
+        listener(...args);
+      });
     else {
       let argsArray = this._transactionCompleteListeners.get(listener) as any[][];
       if (!argsArray) {
