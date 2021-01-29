@@ -42,12 +42,17 @@ function stateReferenceMixin<T extends HasId<any>>() {
 
         if (this._specs()._own) {
           // remove ref when the parent stateobject is deleted.
-          this._removeReferencedObject();
+          this._removeReferencedObject(this._ref);
         }
 
         this._disposeReference();
-      })
-      this.set(this._toInitialize, false);
+      });
+
+      // If ref is already initialized, skip initialization.
+      if (!this._ref)
+        this.set(this._toInitialize, false);
+      // if (this._ref && this._toInitialize != this._ref)
+      //   throw new Error("Error: reference::setProps: conflict between exiting ref and initialize value");
       this._toInitialize = null;
     }
 
@@ -72,9 +77,9 @@ function stateReferenceMixin<T extends HasId<any>>() {
       return this._rootStateAccess(specs._ref._path);
     }
 
-    _removeReferencedObject() {
-      if (this._ref)
-        (this._ref._parent as StateTable<T>).remove(this._ref.id);
+    _removeReferencedObject(obj: StateObject<T> | null) {
+      if (obj)
+        (obj._parent as StateTable<T>).remove(obj.id);
     }
 
     _subscribeRef(listener: (ref: this) => void) {
@@ -86,6 +91,8 @@ function stateReferenceMixin<T extends HasId<any>>() {
 
     set(idOrNewObj: IdType<T> | StateObject<T> | T | null, notify = true) {
 
+      // console.log("SET REF ", this._props._path.join("/"), "to ", idOrNewObj);
+      // console.trace();
       if (!this._getRootState()._history)
         throw new Error("Cannot set a reference on a object unattached to any root state.");
 
@@ -93,10 +100,9 @@ function stateReferenceMixin<T extends HasId<any>>() {
       this._disposeReference();
 
       // Do not record in history the insert/remove of the referenced object.
-      this._getRootState()._history.ignore(() => {
+      this._getRootState()._history.group(() => {
 
-        // remove the referenced object if it is owned.
-        if (this._specs()._own) this._removeReferencedObject();
+        let previousRef = this._ref;
 
         if ((idOrNewObj as StateBaseInterface<any>)?._isStateBase) {
           this._ref = idOrNewObj as StateObject<T>;
@@ -119,20 +125,36 @@ function stateReferenceMixin<T extends HasId<any>>() {
           this._ref = null;
         }
 
-      });
 
-      if (this._ref)
-        this._disposeBackReference = this._ref._addBackReference(this._specs(), this._parent);
+        if (this._ref)
+          this._disposeBackReference = this._ref._addBackReference(this._specs(), this._parent);
 
-      let prev = this._previousSetArgument;
-      this._getRootState()._history.push({
-        action: "anyAction",
-        target: this,
-        propId: this._props,
-        undo: () => this.set(prev),
-        redo: () => this.set(idOrNewObj)
+        // let prev = this._previousSetArgument;
+        let currentRef = this._ref;
+        this._getRootState()._history.push({
+          action: "anyAction",
+          target: this,
+          propId: this._props,
+          // undo: () => this.set(prev),
+          // redo: () => this.set(idOrNewObj)
+          undo: () => this.set(previousRef?.id || null),
+          redo: () => {
+            // console.log("REDO SET REF. set ref to ", currentRef?.id);
+            this.set(currentRef?.id || null);
+          }
+          // undo: () => {
+          //   console.log("UNDO SET REF. set ref to ", previousRef?.id, this._referencedTable().has(previousRef?.id as any));
+          //    this._ref = previousRef ? this._referencedTable().get(previousRef.id) || null : null; },
+          // redo: () => { this._ref = currentRef ? this._referencedTable().get(currentRef.id) || null : null; },
+          // redo: () => this.set(this._ref?.id || null)
+
+        });
+        this._previousSetArgument = idOrNewObj;
+
+        // remove the referenced object if it is owned.
+        if (this._specs()._own && previousRef) this._removeReferencedObject(previousRef);
+
       });
-      this._previousSetArgument = idOrNewObj;
 
       // Listen to change in ref.
       if (this._ref)
@@ -145,7 +167,10 @@ function stateReferenceMixin<T extends HasId<any>>() {
           if (spec._onRefDeleted === "set-null") // SET NULL
             this.set(null);
           else if (spec._onRefDeleted === "cascade") // CASCADE
+          {
+            this.set(null);
             (this._parent._parent as StateTable<T>).remove((this._parent as StateObject<T>).id)
+          }
           else if (typeof spec._onRefDeleted === "function") // CUSTOM CALLBACK.
           {
             let prevRef = this._ref;
@@ -177,9 +202,11 @@ export function stateReferenceNotNullMixin<T extends HasId<any>>() {
     }
 
     set(idOrNewObj: IdType<T> | T | StateObject<T>) {
+      if (this._ref === null && idOrNewObj === null) return;
+
       super.set(idOrNewObj);
-      if (!this._ref && !this._parent?.__beingRemoved__)
-        throw new Error(`StateReferenceNotNull::set resulted in a null reference: ${this._props._path.join('/')}`);
+      // if (!this._ref && !this._parent?.__beingRemoved__)
+      //   throw new Error(`StateReferenceNotNull::set resulted in a null reference: ${this._props._path.join('/')}`);
     }
   }
 }

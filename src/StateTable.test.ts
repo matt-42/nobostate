@@ -1,4 +1,6 @@
 import { createState, stateTable } from "./nobostate";
+import { stateReference, StateReference } from "./StateReference";
+import { stateReferenceArray, StateReferenceArray } from "./StateReferenceArray";
 import { newIntId, newStringId } from "./StateTable";
 
 interface Todo {
@@ -136,6 +138,37 @@ test("table-attach-existing-elements", () => {
   expect(called).toBe(2);
   state.table.insert({ id: 3 });
   expect(called).toBe(3);
+
+});
+
+test("table-attach-subscribe", () => {
+  type Test = { id: number,  };
+  type Test2 = { id: number, ref: StateReference<Test>, refArray: StateReferenceArray<Test> };
+  let state = createState({ table1: stateTable<Test>(), table2: stateTable<Test2>() },
+  {
+    setSpecs: (props, specs) => {
+      specs.reference(props.table2.ref, props.table1, {own: true});
+      specs.reference(props.table2.refArray, props.table1, {own: true});
+    }
+  }
+  );
+
+  let removed = false;
+  state.table2.attach(elt => {
+    elt._subscribe(() => {
+      expect(removed).toBe(false);
+    });
+
+    return () => {
+      removed = true;
+    }
+  });
+
+  let obj = state.table2.insert({ id: 1, ref: stateReference<Test>({id: newIntId() }), 
+    refArray: stateReferenceArray<Test>([{id: newIntId() },{id: newIntId() }]) });
+
+  state.table2.remove(1);
+  expect(obj._removeListeners.length).toBe(0);
 
 });
 

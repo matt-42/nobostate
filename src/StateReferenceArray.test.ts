@@ -1,8 +1,9 @@
 import { StateReference, StateReferenceNotNull } from "./StateReference";
 import { createState, stateTable } from "./nobostate";
 import { StateReferenceArray, stateReferenceArray } from "./StateReferenceArray";
-import { newStringId } from "./StateTable";
+import { newIntId, newStringId } from "./StateTable";
 import { stateReferenceNotNull } from "./StateReference";
+import { StateObject } from "./StateObject";
 
 type Test = { id: string, text: string };
 
@@ -235,29 +236,169 @@ test('update-array-ref-with-_update', () => {
       }
     });
 
-  // state.table1.insert({ id: "1"});
-  // state.table1.insert({ id: "2" });
   let obj = state.table3.insert({ id: "1", refs: stateReferenceArray<TestRef>() });
 
   obj.refs.push({
     id: "42",
-    ref: stateReferenceNotNull<Test>({id: "42"})
+    ref: stateReferenceNotNull<Test>({ id: "42" })
   });
 
   expect(state.table3.assertGet("1").refs[0].ref.ref.id).toBe("42");
   expect(state.table2.size).toBe(1);
   expect(state.table1.size).toBe(1);
-  
-  // expect(obj.ref[0].id).toBe("2");
-  // expect(obj.ref.length).toBe(1);
 
-  // stateReferenceArray<Test>(["1"]);
-  // expect(state.table1.size).toBe(2);
-
-  // obj._update({ ref: stateReferenceArray<Test>(["1"]) });
-
-  // expect(obj.ref.length).toBe(1);
-  // expect(obj.ref[0].id).toBe("1");
-  // expect(state.table1.size).toBe(1);
 });
 
+
+test('remove-ownedRefArray-when-parent-is-removed', () => {
+
+
+  let state = createState({
+    table1: stateTable<Test>(),
+    table2: stateTable<{ id: string, ref: StateReferenceArray<Test> }>(),
+  },
+    {
+      setSpecs: (props, specs) => {
+        specs.referenceArray(props.table2.ref, props.table1, { own: true });
+      }
+    });
+
+  let obj = state.table2.insert({
+    id: "1", ref: stateReferenceArray<Test>(
+      [{ id: newStringId(), text: "a" }, { id: newStringId(), text: "b" }]
+    )
+  });
+
+  expect(state.table1.size).toBe(2);
+  expect(state.table2.size).toBe(1);
+
+  state.table2.remove(obj.id);
+  expect(state.table1.size).toBe(0);
+  expect(state.table2.size).toBe(0);
+
+});
+
+
+
+test('unspecified-refarray-must-throw', () => {
+
+  expect(() => {
+    let state = createState({
+      table1: stateTable<Test>(),
+      table2: stateTable<{ id: string, ref: StateReferenceArray<Test> }>(),
+    },
+      {
+        setSpecs: (props, specs) => {
+          //specs.referenceArray(props.table2.ref, props.table1, { own: true });
+        }
+      });
+    state.table2.insert({ id: "1", ref: stateReferenceArray<Test>() });
+  }).toThrowError();
+
+});
+
+test('refarray-push-array-arg-must-throw', () => {
+
+  expect(() => {
+    let state = createState({
+      table1: stateTable<Test>(),
+      table2: stateTable<{ id: string, ref: StateReferenceArray<Test> }>(),
+    },
+      {
+        setSpecs: (props, specs) => {
+          specs.referenceArray(props.table2.ref, props.table1, { own: true });
+        }
+      });
+    let obj = state.table2.insert({ id: "1", ref: stateReferenceArray<Test>() });
+    obj.ref.push([] as any);
+  }).toThrowError();
+
+});
+
+test('refarray-push-undo-redo', () => {
+
+  let state = createState({
+    table1: stateTable<Test>(),
+    table2: stateTable<{ id: string, ref: StateReferenceArray<Test> }>(),
+  },
+    {
+      setSpecs: (props, specs) => {
+        specs.referenceArray(props.table2.ref, props.table1, { own: true });
+      }
+    });
+  let obj = state.table2.insert({ id: "1", ref: stateReferenceArray<Test>() });
+
+  obj.ref.push({ id: newStringId(), text: "a" });
+  expect(state.table1.size).toBe(1);
+
+  state._history.undo();
+  expect(state.table1.size).toBe(0);
+  expect(obj.ref.length).toBe(0);
+
+  state._history.redo();
+  expect(obj.ref.length).toBe(1);
+  expect(state.table1.size).toBe(1);
+
+});
+
+
+test('refarray-parent-remove-undo', () => {
+
+  let state = createState({
+    table1: stateTable<Test>(),
+    table2: stateTable<{ id: string, ref: StateReferenceArray<Test> }>(),
+  },
+    {
+      setSpecs: (props, specs) => {
+        specs.referenceArray(props.table2.ref, props.table1, { own: true });
+      }
+    });
+  let obj = state.table2.insert({ id: "1", ref: stateReferenceArray<Test>([{ id: newStringId(), text: "a" }, { id: newStringId(), text: "b" }]) });
+
+  expect(state.table1.size).toBe(2);
+  expect(state.table2.size).toBe(1);
+
+  state.table2.remove(obj.id);
+
+  expect(state.table1.size).toBe(0);
+  expect(state.table2.size).toBe(0);
+  expect(obj.ref.length).toBe(0);
+
+  state._history.undo();
+
+  expect(state.table1.size).toBe(2);
+  expect(state.table2.size).toBe(1);
+
+  expect(obj.ref.length).toBe(2);
+});
+
+test('refarray-onRefDeleted-function', () => {
+
+  type Test2 = { id: string, ref: StateReferenceArray<Test> };
+
+  let obj: StateObject<Test2> | null = null;
+  let tobeRemoved: StateObject<Test> | null = null;
+
+  let called = 0;
+  let state = createState({
+    table1: stateTable<Test>(),
+    table2: stateTable<Test2>(),
+  },
+    {
+      setSpecs: (props, specs) => {
+        specs.referenceArray(props.table2.ref, props.table1, {
+          own: true, onRefDeleted: (elt, removed) => {
+            expect(elt.id === obj.id).toBeTruthy();
+            expect(elt.ref === obj.ref).toBeTruthy();
+            expect(removed === tobeRemoved).toBeTruthy();
+            called++;
+          }
+        });
+      }
+    });
+
+  obj = state.table2.insert({ id: "1", ref: stateReferenceArray<Test>([{ id: newStringId(), text: "a" }]) });
+  tobeRemoved = obj.ref[0];
+  state.table1.remove(tobeRemoved.id);
+  expect(called).toBe(1);
+});

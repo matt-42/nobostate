@@ -43,15 +43,22 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
 
 
       this._parent._onDelete(() => {
-        // dispose all refs.
-        for (let disposers of this._refDisposers.values())
-          disposers.forEach(f => f());
 
         if (this._specs()._own) {
           // console.log(this);
           // remove refs when we own the ref and when the parent stateobject is deleted.
-          this.forEach(ref => (ref._parent as StateTable<T>).remove(ref.id));
+
+          while (this.length)
+            (this[0]._parent as StateTable<T>).remove(this[0].id);
+
         }
+
+        // dispose all refs.
+        for (let disposers of this._refDisposers.values())
+          disposers.forEach(f => f());
+        this._refDisposers.clear();
+        this.length = 0;
+
       });
 
       this.push(...this._toInitialize);
@@ -63,23 +70,35 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
     }
     remove(filter: (o: StateObject<T>) => boolean): StateObject<T>[] {
       let removed = _.remove(this, filter);
+
+      this._getRootState()._history.push({
+        action: "anyAction",
+        target: this,
+        propId: this._props,
+        undo: () => this.push(...removed),
+        redo: () => this.remove(filter),
+      });
+
       for (let o of removed) {
 
         // dispose ref and clear disposers.
         let disposers = this._refDisposers.get(o.id);
         if (!disposers?.length) throw new Error();
-        disposers.forEach(f => f());
-        this._refDisposers.delete(o.id);
+        if (disposers) {
+          disposers.forEach(f => f());
+          this._refDisposers.delete(o.id);
+        }
 
         // remove the refd object if we own it.
         if (this._specs()._own)
-          (o._parent as StateTable<T>).remove(o.id)
+          (o._parent as StateTable<T>).remove(o.id);
+
       }
       this._notifyThisSubscribers();
       return removed;
     }
 
-    push(...elements: (IdType<T> | T)[]): number {
+    push(...elements: (IdType<T> | T | StateObject<T>)[]): number {
 
       // insertion of all elements grouped makes 1 history group.
       this._getRootState()._history.group(() => {
@@ -88,7 +107,15 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
           if (Array.isArray(elt))
             throw new Error("type error: referenceArray::push takes elements, not array. Use push(...array) instead.");
           let ref: StateObject<T> | null = null;
-          if ((elt as any)?.id !== undefined) {
+          if ((elt as StateObject<T>)._isStateBase) {
+            ref = elt as StateObject<T>;
+            if (!this._referencedTable().has(ref.id))
+              this._getRootState()._history.ignore(() => {
+                this._referencedTable().insert(ref as StateObject<T>);
+              });
+          }
+          else if ((elt as any)?.id !== undefined) {
+            // FIXME test undo/redo.
             this._getRootState()._history.ignore(() => {
               ref = this._referencedTable().insert(elt as T)
             });

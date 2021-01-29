@@ -2,6 +2,7 @@ import _ from "lodash";
 import { StateArray } from "./StateArray";
 import { PropSpec } from "./prop";
 import { HasId, StateTable } from "./StateTable";
+import { RootState } from "./RootState";
 
 export interface HistoryUpdatePropAction {
   action: "updateProp";
@@ -46,11 +47,16 @@ export class NoboHistory {
   currentHistoryIndex = -1;
   grouping = 0; // more than 0 when grouping.
   notRecording = 0;
+  rootState: RootState<any>;
+
+  constructor(root: RootState<any>) {
+    this.rootState = root;
+  }
 
   startGroup() { this.grouping++; }
   endGroup() { this.grouping--; if (this.grouping < 0) throw new Error(); }
 
-  ignore<R>(f: () => R) : R {
+  ignore<R>(f: () => R): R {
     this.notRecording++;
     try {
       return f();
@@ -60,8 +66,8 @@ export class NoboHistory {
   }
 
   group<R>(f: () => R): R;
-  group<R>(mergeId: string, f : () => R): R;
-  group<R>(mergeId_: string|(() => R), f_?: () => R): R {
+  group<R>(mergeId: string, f: () => R): R;
+  group<R>(mergeId_: string | (() => R), f_?: () => R): R {
     // if the last group has not the same merge id,
     // create a new group.
     // console.log(this.history.map(i => i.mergeId));
@@ -91,6 +97,8 @@ export class NoboHistory {
   size() { return this.history.length; }
 
   push(item: HistoryAction) {
+    // console.log(" PUSH ", item.action, item.target._props._path.join('/'), item.prop);
+
     if (this.notRecording) return;
     // Ignore some props.
     if (item.propId._undoIgnore)
@@ -130,13 +138,16 @@ export class NoboHistory {
     if (item.action === "anyAction")
       item.undo();
     else if (item.action === "updateProp") {
-      // console.log(item.target, item.prop, item.target[item.prop], item.next);
-      if (!_.isEqual(item.target[item.prop], item.next))
-        throw new Error();
+      // console.log("UNDO: ", item.target, item.prop, item.target[item.prop], item.next);
+      // if (!_.isEqual(item.target[item.prop], item.next))
+      //   throw new Error();
       item.target[item.prop] = item.prev;
     }
     else if (item.action === "remove")
+    {
+      // console.log("UNDO remove: ", item.element.id);
       item.target.insert(item.element);
+    }
     else if (item.action === "insert")
       item.target.remove(item.element.id);
     else if (item.action === "push")
@@ -148,8 +159,8 @@ export class NoboHistory {
       item.redo();
     // console.log("redo ", item);
     else if (item.action === "updateProp") {
-      if (!_.isEqual(item.target[item.prop], item.prev))
-        throw new Error();
+      // if (!_.isEqual(item.target[item.prop], item.prev))
+      //   throw new Error(`Redo Error: current value of ${item.target._props?._path?.join("/")}/${item.prop} should be ${item.prev} but it is ${item.target[item.prop]}`);
       item.target[item.prop] = item.next;
     }
     else if (item.action === "remove")
@@ -162,21 +173,28 @@ export class NoboHistory {
   }
 
   undo() {
-    this.ignore(() => {
-      let group = this.history[this.currentHistoryIndex];
-      if (!group) return;
-      for (let i = group.actions.length - 1; i >= 0; i--)
-        this.undoAction(group.actions[i]);
-      this.currentHistoryIndex -= 1;
-    })
+    // console.log("START UNDO.");
+    this.rootState._transaction(() => {
+      this.ignore(() => {
+        let group = this.history[this.currentHistoryIndex];
+        if (!group) return;
+        for (let i = group.actions.length - 1; i >= 0; i--)
+          this.undoAction(group.actions[i]);
+        this.currentHistoryIndex -= 1;
+      });
+      // console.log(this.rootState.robots?.get(1)?.frame?.ref);
+      // console.log("END UNDO.");
+    });
   }
 
   redo() {
-    this.ignore(() => {
-      let group = this.history[this.currentHistoryIndex + 1];
-      if (!group) return;
-      group.actions.forEach(item => this.redoAction(item));
-      this.currentHistoryIndex += 1;
+    this.rootState._transaction(() => {
+      this.ignore(() => {
+        let group = this.history[this.currentHistoryIndex + 1];
+        if (!group) return;
+        group.actions.forEach(item => this.redoAction(item));
+        this.currentHistoryIndex += 1;
+      });
     });
   }
 

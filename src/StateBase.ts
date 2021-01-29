@@ -57,8 +57,9 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
     _onChange(listener: ((value: this, key: ThisKeys) => void)) {
       this._thisSubscribers.push(listener);
       return () => {
-        if (_.remove(this._thisSubscribers, l => l === listener).length !== 1)
-          throw new Error();
+        const nRemoved = _.remove(this._thisSubscribers, l => l === listener).length;
+        if (nRemoved !== 1)
+          throw new Error(`nRemoved ${nRemoved} should be 1`);
       }
     }
 
@@ -134,11 +135,14 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
     // }
 
     _runNotification(listener: (...args: any[]) => void, ...args: any[]) {
-      let root = this._getRootState();
-      if (root._notification)
-        root._notification(listener, ...args);
-      else
-        listener(...args);
+
+      if (!(this as any).__beingRemoved__) {
+        let root = this._getRootState();
+        if (root._notification)
+          root._notification(listener, ...args);
+        else
+          listener(...args);
+      }
     }
 
     // A prop has been updated.
@@ -154,7 +158,6 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
     _notifyThisSubscribers() {
       [...this._thisSubscribers].forEach(sub => this._runNotification(sub, this, null as any));
       if (this._parentListener) this._runNotification(this._parentListener);
-
     }
 
     _registerChild<P extends ThisKeys>(propOrId: P, child: ThisKeyAccessType<P>) {
@@ -180,7 +183,7 @@ export interface StateBaseInterface<T> {
   // _props: StatePropIdentifiers<T> = null as any;
   _props: StatePropIdentifiers<T>;
 
-  _subscribers: { 
+  _subscribers: {
     [K: string]: ((value: any, key: Keys<T>) => void)[];
   };
   _thisSubscribers: ((value: any, key: Keys<T>) => void)[];

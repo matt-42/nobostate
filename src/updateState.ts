@@ -88,6 +88,11 @@ export function updateState(dst: any, prop: any, src: any) {
   // Object props.
   //
   else { // dst[prop] is a non state value. Update it.
+
+    if (prop.startsWith("_")) return;
+
+    // console.log("UPDATE STATE: ", prop, "to", src);
+
     let prev = dst[prop];
 
     // Registering a new prop.

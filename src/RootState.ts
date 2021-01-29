@@ -8,7 +8,7 @@ import { updateState } from "./updateState";
 
 export class RootStateImpl<T> extends stateObjectMixin<{}>() {
 
-  _history = new NoboHistory();
+  _history = new NoboHistory(this);
 
   _load(data: any) {
     this._beginTransaction();
