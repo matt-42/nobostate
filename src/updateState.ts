@@ -30,7 +30,7 @@ export function updateState(dst: any, prop: any, src: any) {
     {
       console.log(toUpdate);
       console.log(src);
-      throw new Error(`UpdateState type error when updating reference ${dst._props._path.join('/')}/${prop}`);
+      throw new Error(`UpdateState type error when updating reference ${dst._path()}/${prop}`);
     }
 
       (toUpdate as StateReference<any>).set(srcRef._toInitialize || srcRef.ref);
@@ -93,6 +93,9 @@ export function updateState(dst: any, prop: any, src: any) {
 
     // console.log("UPDATE STATE: ", prop, "to", src);
 
+    dst._logger()?.groupLog(`Update ${dst._path()}/${prop} to:  `);
+    dst._logger()?.log(src);
+
     let prev = dst[prop];
 
     // Registering a new prop.
@@ -128,6 +131,8 @@ export function updateState(dst: any, prop: any, src: any) {
         prev,
         next: src
       } as HistoryUpdatePropAction);
+
+    dst._logger()?.groupEnd();
 
   }
 }

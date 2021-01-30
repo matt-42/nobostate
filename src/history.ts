@@ -97,7 +97,7 @@ export class NoboHistory {
   size() { return this.history.length; }
 
   push(item: HistoryAction) {
-    // console.log(" PUSH ", item.action, item.target._props._path.join('/'), item.prop);
+    // console.log(" PUSH ", item.action, item.target._path(), item.prop);
 
     if (this.notRecording) return;
     // Ignore some props.

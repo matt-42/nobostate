@@ -87,6 +87,10 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
       return elt;
     }
 
+    _logger() {
+      return this._getRootState()?._loggerObject;
+    }
+
     _subscribeSelector<R>(selector: (t: this) => R, compute: (selected: R) => void, initCall = false): void {
       let prev: R | null = null;
       this._subscribe(() => {
@@ -118,6 +122,17 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
       if (initCall && (this as any)[key] !== undefined)
         listener((this as any)[key], key);
       return () => { if (subs) _.remove(subs, s => s === listener); };
+    }
+
+    _path() {
+      let it = this;
+      if (!this._parent) return '';
+      else {
+        let parentPath = this._parent._path();
+        if ((this._parent as any)._isStateTable) 
+          return parentPath + '[' + (this as any).id + ']';
+        else return parentPath + '/' + _.last(this._props._path);
+      }
     }
 
     _subscribeKeys(
@@ -191,6 +206,7 @@ export interface StateBaseInterface<T> {
 
   _onChange(listener: ((value: this, key: Keys<T>) => void)): (() => void);
 
+  _path() : string;
   _setProps(props: PropSpec): void;
   _getRootState(): { _history: NoboHistory; };
 

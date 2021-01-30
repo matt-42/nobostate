@@ -56,7 +56,7 @@ export const stateTable = <T extends HasId<any>>() => new (stateTableMixin<T>())
 
 class SpecsBuilder {
 
-  reference<P, T>(srcProp: ReferenceSpec<any, P>, dstTable: TablePropSpec<T>, options? :
+  reference<P, T>(srcProp: ReferenceSpec<any, P>, dstTable: TablePropSpec<T>, options?:
     {
       onRefDeleted?: "set-null" | "cascade" | ((elt: P, removed: T) => void)
       own?: boolean
@@ -67,7 +67,7 @@ class SpecsBuilder {
     srcProp._ref = dstTable as any;
   }
 
-  referenceArray<P, T>(srcProp: ReferenceSpec<any, P>, dstTable: TablePropSpec<T>, options? :
+  referenceArray<P, T>(srcProp: ReferenceSpec<any, P>, dstTable: TablePropSpec<T>, options?:
     {
       onRefDeleted?: ((elt: P, removed: T) => void)
       own?: boolean
@@ -84,6 +84,7 @@ class SpecsBuilder {
 }
 
 export function createState<T>(state: T, options?: {
+  log?: boolean,
   setSpecs?: (propIds: StatePropIdentifiers<T>, specs: SpecsBuilder) => void,
 })
   : RootState<T> {
@@ -92,6 +93,6 @@ export function createState<T>(state: T, options?: {
 
   options?.setSpecs?.(propsIds, new SpecsBuilder());
 
-  return makeRootState(state, propsIds as PropSpec);
+  return makeRootState(state, propsIds as PropSpec, { log: options?.log || false });
 
 }

@@ -48,6 +48,12 @@ export function stateTableMixin<T extends HasId<any>>() {
 
     _insertListeners: ((o: StateObject<T>) => void)[] = [];
     onInsert(listener: (o: StateObject<T>) => void): () => void {
+      const ignoredListener =  (o: StateObject<T>) => this._getRootState()._history.ignore(() => listener(o));
+      this._insertListeners.push(ignoredListener);
+      return () => _.remove(this._insertListeners, l => l === ignoredListener);
+    }
+
+    onInsertInternal(listener: (o: StateObject<T>) => void): () => void {
       this._insertListeners.push(listener);
       return () => _.remove(this._insertListeners, l => l === listener);
     }
@@ -69,7 +75,8 @@ export function stateTableMixin<T extends HasId<any>>() {
       return () => { disposeOnInsert(); disposed = true; }
     }
 
-    insert(value: T|StateObject<T>): StateObject<T> {
+    insert(value: T | StateObject<T>): StateObject<T> {
+
 
       let insert_code = () => {
         // Compute new id if needed.
@@ -86,7 +93,7 @@ export function stateTableMixin<T extends HasId<any>>() {
 
         // check if id already exists.
         if (this.has(value.id))
-          throw new Error(`table ${this._props._path.join('.')} with id ${value.id} already exists`);
+          throw new Error(`table ${this._path()} with id ${value.id} already exists`);
 
         // Insert a new placeholder stateObject in the map.
         // if value is already a state object, insert it directly.
@@ -109,7 +116,12 @@ export function stateTableMixin<T extends HasId<any>>() {
         this._notifySubscribers(id, elt);
         // console.log(this._getRootState());
         // console.log(this._getRootState()._history);
-        [...this._insertListeners].forEach(f => this._runNotification(f, elt));
+        if (this._insertListeners.length)
+        {
+          this._logger()?.groupLog(`Calling onInsert listeners for ${this._path()}`);
+          [...this._insertListeners].forEach(f => this._runNotification(f, elt));
+          this._logger()?.groupEnd();
+        }
 
         const history = this._getRootState()._history;
         if (history && this._props)
@@ -125,13 +137,18 @@ export function stateTableMixin<T extends HasId<any>>() {
 
       }
 
-      if (this._getRootState()._history) {
-        let res = this._getRootState()._history.group(insert_code);
 
+      this._logger()?.groupLog(`Insert in table ${this._path()} element: `);
+      // if ((value as StateObject<T>)._isStateObject)
+      //   this._logger()?.log(`stateObject with id ${value.id}`);
+      this._logger()?.log(value);
 
-        return res;
-      }
-      else return insert_code();
+      let res = this._getRootState()._history ?
+        this._getRootState()._history.group(insert_code) :
+        insert_code();
+
+      this._logger()?.groupEnd();
+      return res;
     }
 
     clone(id: Id, newId_?: Id) {
@@ -188,12 +205,14 @@ export function stateTableMixin<T extends HasId<any>>() {
       let root = this._getRootState();
       let eltToDelete = this.get(id);
       if (!eltToDelete) return;
-      
+
       // Avoid infinit loop when own == true and onRefDeleted == cascade.
       if (eltToDelete.__beingRemoved__) return;
       eltToDelete.__beingRemoved__ = true;
-      // console.log("remove ", `remove-${this._props._path.join('-')}-${id}`, this.has(id), this.get(id)?.__beingRemoved__);
-      
+      // console.log("remove ", `remove-${this._path()}-${id}`, this.has(id), this.get(id)?.__beingRemoved__);
+
+      this._logger()?.groupLog(`Remove ${eltToDelete._path()}`);
+
       // console.trace();
       // Use a transaction so that no listeners is called in the middle of the removal.
       root._transaction(() => {
@@ -207,13 +226,20 @@ export function stateTableMixin<T extends HasId<any>>() {
           // clone the array because listeners can remove themselves from the array, breaking foreach.
 
           // [...eltToDelete._removeListeners].forEach((f: any) => this._runNotification(f, eltToDelete));
-          [...eltToDelete._removeListeners].forEach((f: any) => f(eltToDelete));
-          eltToDelete._removeListeners.length = 0;
-          
+
+          if (eltToDelete._removeListeners.length)
+          {
+            this._logger()?.groupLog(`Calling onDelete listeners of ${eltToDelete._path()}`);
+            [...eltToDelete._removeListeners].forEach((f: any) => f(eltToDelete));
+            eltToDelete._removeListeners.length = 0;
+            this._logger()?.groupEnd();
+          }
+  
+
           // Then we remove the element from the table.
           // Note: we must do it after removelisteners because they may need to retreive info
           // about the element being removed.
-          // console.log(`${this._props._path.join('/')}: remove id`, id);
+          // console.log(`${this._path()}: remove id`, id);
           this.delete(id);
 
           this._keyDeleteListeners.forEach(f => f());
@@ -238,7 +264,8 @@ export function stateTableMixin<T extends HasId<any>>() {
           // } as HistoryTableAction);
         });
       });
-      // console.log("remove done ", `remove-${this._props._path.join('-')}-${id}`);
+      // console.log("remove done ", `remove-${this._path()}-${id}`);
+      this._logger()?.groupEnd();
 
       eltToDelete.__beingRemoved__ = undefined;
     }
@@ -263,7 +290,7 @@ export interface StateTableInterface<T> extends StateBaseInterface<Map<IdType<T>
 
   attach(fun: (o: StateObject<T>) => (() => void) | void): void;
 
-  insert(elt: T|StateObject<T>): StateObject<T>;
+  insert(elt: T | StateObject<T>): StateObject<T>;
 
   clone(id: IdType<T>, newId?: IdType<T>): StateObject<T>;
   set(id: IdType<T>, value: StateObject<T>): this;

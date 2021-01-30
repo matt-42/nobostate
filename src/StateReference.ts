@@ -38,7 +38,7 @@ function stateReferenceMixin<T extends HasId<any>>() {
       }
       super._setProps(props);
 
-      this._parent._onDelete(() => {
+      this._parent._onDeleteInternal(() => {
 
         if (this._specs()._own) {
           // remove ref when the parent stateobject is deleted.
@@ -91,7 +91,10 @@ function stateReferenceMixin<T extends HasId<any>>() {
 
     set(idOrNewObj: IdType<T> | StateObject<T> | T | null, notify = true) {
 
-      // console.log("SET REF ", this._props._path.join("/"), "to ", idOrNewObj);
+      this._logger()?.groupLog(`Set reference ${this._path()} to: `);
+      this._logger()?.log(idOrNewObj);
+
+      // console.log("SET REF ", this._path(), "to ", idOrNewObj);
       // console.trace();
       if (!this._getRootState()._history)
         throw new Error("Cannot set a reference on a object unattached to any root state.");
@@ -109,7 +112,7 @@ function stateReferenceMixin<T extends HasId<any>>() {
           // If we will own the object check that is is not already owned. 
           if (this._specs()._own && this._ref._backReferences(this._specs()).length) {
             let owner = this._ref._backReferences(this._specs())[0];
-            throw new Error(`Reference is already owned by ${owner._props._path.join('.')}[id == ${owner.id}]`);
+            throw new Error(`Reference is already owned by ${owner._path()}`);
           }
         }
         else if ((idOrNewObj as any)?.id !== undefined) {
@@ -118,8 +121,10 @@ function stateReferenceMixin<T extends HasId<any>>() {
         else if (idOrNewObj !== null) {
           this._ref = this._referencedTable().get(idOrNewObj as IdType<T>) || null;
           if (!this._ref)
-            throw new Error("StateReference error: trying to reference a non existing id " + idOrNewObj +
-              `. reference : ${this._props._path.join('/')}. referenced table: ${this._referencedTable()._props._path.join("/")} `);
+            console.warn("StateReference error: trying to reference a non existing id " + idOrNewObj +
+              `. reference : ${this._path()}. referenced table: ${this._referencedTable()._path()} `);
+          // throw new Error("StateReference error: trying to reference a non existing id " + idOrNewObj +
+          // `. reference : ${this._path()}. referenced table: ${this._referencedTable()._path()} `);
         }
         else {
           this._ref = null;
@@ -162,7 +167,7 @@ function stateReferenceMixin<T extends HasId<any>>() {
 
       // Set on delete behaviors.
       if (this._ref) {
-        this._disposeRefOnDelete = this._ref._onDelete(() => {
+        this._disposeRefOnDelete = this._ref._onDeleteInternal(() => {
           let spec = this._specs();
           if (spec._onRefDeleted === "set-null") // SET NULL
             this.set(null);
@@ -189,6 +194,9 @@ function stateReferenceMixin<T extends HasId<any>>() {
         this._refListeners.forEach(l => this._runNotification(l, this));
       }
 
+      if (this.ref)
+        this._logger()?.log(`${this._path()} now references ${this._ref ? this._ref._path() : "null"}`);
+      this._logger()?.groupEnd();
     }
   }
 }
@@ -206,7 +214,7 @@ export function stateReferenceNotNullMixin<T extends HasId<any>>() {
 
       super.set(idOrNewObj);
       // if (!this._ref && !this._parent?.__beingRemoved__)
-      //   throw new Error(`StateReferenceNotNull::set resulted in a null reference: ${this._props._path.join('/')}`);
+      //   throw new Error(`StateReferenceNotNull::set resulted in a null reference: ${this._path()}`);
     }
   }
 }

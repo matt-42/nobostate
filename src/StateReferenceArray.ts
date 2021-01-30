@@ -42,7 +42,7 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
       super._setProps(props);
 
 
-      this._parent._onDelete(() => {
+      this._parent._onDeleteInternal(() => {
 
         if (this._specs()._own) {
           // console.log(this);
@@ -69,17 +69,28 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
       this.remove(() => true);
     }
     remove(filter: (o: StateObject<T>) => boolean): StateObject<T>[] {
-      let removed = _.remove(this, filter);
+      let indicesToRemove: number[] = [];
+      this.forEach((val, idx) => { if (filter(val)) indicesToRemove.push(idx); });
 
-      this._getRootState()._history.push({
-        action: "anyAction",
-        target: this,
-        propId: this._props,
-        undo: () => this.push(...removed),
-        redo: () => this.remove(filter),
-      });
+      const elementsRemoved : StateObject<T>[] = []
+      indicesToRemove.forEach((index, indexPosition) => {
+        
+        
+        let actualIndex = index - indexPosition;
+        let o = this.splice(actualIndex, 1)[0] as StateObject<T>;
+        if (!o) throw new Error();
+        
+        this._logger()?.groupLog(`Remove id ${o.id} from reference Array ${this._path()}`);
 
-      for (let o of removed) {
+        elementsRemoved.push(o);
+        this._getRootState()._history.push({
+          action: "anyAction",
+          target: this,
+          propId: this._props,
+          undo: () => this.insert(o, actualIndex),
+          redo: () => this.remove(x => x.id === o.id),
+        });
+
 
         // dispose ref and clear disposers.
         let disposers = this._refDisposers.get(o.id);
@@ -93,9 +104,67 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
         if (this._specs()._own)
           (o._parent as StateTable<T>).remove(o.id);
 
-      }
+        this._logger()?.groupEnd();
+      });
       this._notifyThisSubscribers();
-      return removed;
+      return elementsRemoved;
+    }
+
+    insert(elt: IdType<T> | T | StateObject<T>, index: number) {
+
+      this._logger()?.groupLog(`Insert into reference Array ${this._path()} at position ${index}: `);
+      this._logger()?.log(elt);
+
+      if (Array.isArray(elt))
+        throw new Error("type error: referenceArray::push takes elements, not array. Use push(...array) instead.");
+      let ref: StateObject<T> | null = null;
+      if ((elt as StateObject<T>)._isStateBase) {
+        ref = elt as StateObject<T>;
+        if (!this._referencedTable().has(ref.id))
+          this._referencedTable().insert(ref as StateObject<T>);
+      }
+      else if ((elt as any)?.id !== undefined) {
+        ref = this._referencedTable().insert(elt as T);
+      }
+      else {
+        ref = this._referencedTable().get(elt as IdType<T>) || null;
+        if (!ref) throw new Error(`StateReferenceArray error: trying to create a ref to the non existing id ${elt} 
+          of table '${this._referencedTable()._path()}`);
+      }
+
+      if (!ref) throw new Error();
+
+      super.splice(index, 0, ref);
+
+      this._getRootState()._history.push({
+        action: "anyAction",
+        target: this,
+        propId: this._props,
+        undo: () => this.remove(o => o.id === ref?.id),
+        redo: () => { if (ref) this.push(ref); }
+      });
+
+      // Init disposers.
+      this._refDisposers.set(ref.id, []);
+      let refDisposer = this._refDisposers.get(ref.id);
+      if (!refDisposer) throw new Error();
+
+      // Add the back reference.
+      refDisposer.push(ref._addBackReference(this._specs(), this._parent));
+
+      // Listen to change in ref.
+      refDisposer.push(ref._onChange(() => this._notifyThisSubscribers()));
+
+      // Setup on ref delete behaviors.
+      refDisposer.push(ref._onDeleteInternal(() => {
+        let spec = this._specs();
+        this.remove(r => r === ref);
+
+        if (typeof spec._onRefDeleted === "function") // CUSTOM CALLBACK.
+          spec._onRefDeleted(this._parent, ref);
+      }));
+
+      this._logger()?.groupEnd();
     }
 
     push(...elements: (IdType<T> | T | StateObject<T>)[]): number {
@@ -103,62 +172,7 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
       // insertion of all elements grouped makes 1 history group.
       this._getRootState()._history.group(() => {
         elements.forEach(elt => {
-
-          if (Array.isArray(elt))
-            throw new Error("type error: referenceArray::push takes elements, not array. Use push(...array) instead.");
-          let ref: StateObject<T> | null = null;
-          if ((elt as StateObject<T>)._isStateBase) {
-            ref = elt as StateObject<T>;
-            if (!this._referencedTable().has(ref.id))
-              this._getRootState()._history.ignore(() => {
-                this._referencedTable().insert(ref as StateObject<T>);
-              });
-          }
-          else if ((elt as any)?.id !== undefined) {
-            // FIXME test undo/redo.
-            this._getRootState()._history.ignore(() => {
-              ref = this._referencedTable().insert(elt as T)
-            });
-          }
-          else {
-            ref = this._referencedTable().get(elt as IdType<T>) || null;
-            if (!ref) throw new Error(`StateReferenceArray error: trying to create a ref to the non existing id ${elt} 
-              of table '${this._referencedTable()._props._path.join('.')}`);
-          }
-
-          if (!ref) throw new Error();
-
-          super.push(ref);
-
-          this._getRootState()._history.push({
-            action: "anyAction",
-            target: this,
-            propId: this._props,
-            undo: () => this.remove(o => o.id === ref?.id),
-            redo: () => this.push(elt)
-          });
-
-          // Init disposers.
-          this._refDisposers.set(ref.id, []);
-          let refDisposer = this._refDisposers.get(ref.id);
-          if (!refDisposer) throw new Error();
-
-          // Add the back reference.
-          refDisposer.push(ref._addBackReference(this._specs(), this._parent));
-
-          // Listen to change in ref.
-          refDisposer.push(ref._onChange(() => this._notifyThisSubscribers()));
-
-          // Setup on ref delete behaviors.
-          refDisposer.push(ref._onDelete(() => {
-            let spec = this._specs();
-            this.remove(r => r === ref);
-
-            if (typeof spec._onRefDeleted === "function") // CUSTOM CALLBACK.
-              spec._onRefDeleted(this._parent, ref);
-          }));
-
-
+          this.insert(elt, this.length);
         });
       });
 
@@ -175,7 +189,7 @@ export type StateReferenceArray<T> = {
   _toInitialize: (IdType<T> | T)[];
   clear(): void;
   remove(filter: (o: StateObject<T>) => boolean): StateObject<T>[];
-  push(...elements: (IdType<T> | T)[]): number;
+  push(...elements: (IdType<T> | T | StateObject<T>)[]): number;
 
 } & StateObjectArray<T>;
 

@@ -136,24 +136,74 @@ test('reference-array-undo-push', () => {
   state.table1.insert({ id: "42", text: "a" });
   state.table1.insert({ id: "43", text: "b" });
   state.table1.insert({ id: "44", text: "c" });
-  state.table2.insert({ id: "1", refs: stateReferenceArray<Test>(["42", "43"]) });
+  state.table2.insert({ id: "1", refs: stateReferenceArray<Test>(["42"]) });
 
   let obj = state.table2.assertGet("1");
 
+  obj.refs.push("43");
   obj.refs.push("44");
 
   expect(obj.refs.length).toBe(3);
   expect(obj.refs[2].text).toBe("c");
 
   state._history.undo();
+  state._history.undo();
 
-  expect(obj.refs.length).toBe(2);
+  expect(obj.refs.length).toBe(1);
+
+  state._history.redo();
+  state._history.redo();
+
+  expect(obj.refs.length).toBe(3);
+
+  expect(obj.refs[0].text).toBe("a");
+  expect(obj.refs[1].text).toBe("b");
+  expect(obj.refs[2].text).toBe("c");
 
   // state.table2.remove("1");
   // expect(state.table2.size).toBe(0);
 });
 
+test('reference-array-undo-remove', () => {
 
+  let state = createState({
+    table1: stateTable<Test>(),
+    table2: stateTable<{ id: string, refs: StateReferenceArray<Test> }>(),
+  },
+    {
+      setSpecs: (props, specs) => {
+        specs.referenceArray(props.table2.refs, props.table1);
+      }
+    });
+
+  state.table1.insert({ id: "42", text: "a" });
+  state.table1.insert({ id: "43", text: "b" });
+  state.table1.insert({ id: "44", text: "c" });
+  state.table2.insert({ id: "1", refs: stateReferenceArray<Test>(["42", "43", "44"]) });
+
+  let obj = state.table2.assertGet("1");
+
+  obj.refs.remove(o => o.id === "43");
+
+  expect(obj.refs.length).toBe(2);
+  expect(obj.refs[0].text).toBe("a");
+  expect(obj.refs[1].text).toBe("c");
+
+  state._history.undo();
+
+  expect(obj.refs.length).toBe(3);
+
+  expect(obj.refs[0].text).toBe("a");
+  expect(obj.refs[1].text).toBe("b");
+  expect(obj.refs[2].text).toBe("c");
+
+  state._history.redo();
+
+  expect(obj.refs.length).toBe(2);
+  expect(obj.refs[0].text).toBe("a");
+  expect(obj.refs[1].text).toBe("c");
+
+});
 
 test('reference-array-back-reference', () => {
 

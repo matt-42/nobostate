@@ -6,9 +6,30 @@ import { revive, reviveReferences } from "./unwrap_revive";
 import { updateState } from "./updateState";
 
 
+export class Logger {
+
+  groupEnd() {
+    console.groupEnd();
+  }
+
+  log(message: any) {
+    console.log(message);
+  }
+
+  groupLog(message: any) {
+    console.group(message);
+  }
+}
 export class RootStateImpl<T> extends stateObjectMixin<{}>() {
 
   _history = new NoboHistory(this);
+  _loggerObject: Logger | null = null;
+
+  constructor(obj: any, options?: { log: boolean }) {
+    super(obj);
+    if (options?.log)
+      this._loggerObject = new Logger();
+  }
 
   _load(data: any) {
     this._beginTransaction();
@@ -110,9 +131,9 @@ export class RootStateImpl<T> extends stateObjectMixin<{}>() {
 
 export type RootState<T> = StateObject<T> & RootStateImpl<T>;
 
-export function makeRootState<T>(state: T, propId: PropSpec): RootState<T> {
+export function makeRootState<T>(state: T, propId: PropSpec, options?: { log: boolean }): RootState<T> {
 
-  let wrapped = createStateObjectProxy(new RootStateImpl(state));
+  let wrapped = createStateObjectProxy(new RootStateImpl(state, options));
 
   // wrapped._update(state);
   // for (let k in state)

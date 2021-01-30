@@ -27,6 +27,11 @@ export function stateObjectMixin<T>() {
     }
  
     _onDelete(listener: (o: T) => void) {
+      const ignoredListener =  (o: T) => this._getRootState()._history.ignore(() => listener(o));
+      this._removeListeners.push(ignoredListener);
+      return () => _.remove(this._removeListeners, l => l === ignoredListener);
+    }
+    _onDeleteInternal(listener: (o: T) => void) {
       this._removeListeners.push(listener);
       return () => _.remove(this._removeListeners, l => l === listener);
     }
@@ -60,6 +65,7 @@ export interface StateObjectInterface<T> extends StateBaseInterface<T> {
   _isStateObject: boolean;
   _removeListeners: ((o: T) => void)[];
   _onDelete(listener: (o: T) => void): () => void;
+  _onDeleteInternal(listener: (o: T) => void): () => void;
   _update(value: { [K in keyof T]?: T[K] }): void;
 
   _addBackReference<Parent>(p: ReferenceSpec<any, Parent>, obj: Parent): () => void;
