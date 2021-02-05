@@ -24,6 +24,9 @@ export function updateState(dst: any, prop: any, src: any) {
 
   let toUpdate = dst._get(prop);
 
+  //
+  // References.
+  //
   if (toUpdate?._isStateReference) {
     let srcRef = src as StateReference<any>;
     if (!srcRef._isStateReference)
@@ -45,7 +48,7 @@ export function updateState(dst: any, prop: any, src: any) {
     copyStateArray(toUpdate, src);
   }
   //
-  // Objects
+  // Objects.
   //
   else if (toUpdate?._isStateObject) {
     if (!(src as StateObject<any>)._isStateObject)
@@ -66,7 +69,7 @@ export function updateState(dst: any, prop: any, src: any) {
     }
   }
   //
-  // Table
+  // Table.
   //
   else if (toUpdate?._isStateTable) {
     let srcTable = (src as StateTable<any>)
@@ -87,7 +90,8 @@ export function updateState(dst: any, prop: any, src: any) {
   //
   // Object props.
   //
-  else { // dst[prop] is a non state value. Update it.
+  else { // dst[prop] is a non state value. (or it is not defined yet and we are going
+    // to set it as a new statebase derived object).
 
     if (prop.startsWith("_")) return;
 
@@ -110,12 +114,14 @@ export function updateState(dst: any, prop: any, src: any) {
     //   propagatePropIds(src, dst._props[prop]);
 
     // assign the prop to it's new value.
-    dst[prop] = src;
+    if (!dst._isStateObject) throw new Error();
+    // dst[prop] = src;
+    dst.set(prop, src);
 
     // if it is different than it's previous version,
     // notify the subscribers.
-    if (!_.isEqual(prev, dst[prop]))
-      dst._notifySubscribers(prop, src);
+    // actually it's too slow: if (!_.isEqual(prev, dst[prop]))
+    dst._notifySubscribers(prop, src);
 
     // console.log(prop);
     // console.log(dst._getRootState());

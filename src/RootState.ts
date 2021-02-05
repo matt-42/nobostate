@@ -32,30 +32,33 @@ export class RootStateImpl<T> extends stateObjectMixin<{}>() {
   }
 
   _load(data: any) {
-    this._beginTransaction();
-    // this.pauseSubscribers();
-    let loadedState = revive(data);
+    this._transaction(() => {
+      this._history.ignore(() => {
+        // this.pauseSubscribers();
+        let loadedState = revive(data);
 
-    // for (let k in loadedState) {
-    //   if ((k as string).startsWith("_")) continue;
+        // for (let k in loadedState) {
+        //   if ((k as string).startsWith("_")) continue;
 
-    //   if (isPrimitive((this as any)[k])) {
-    //     // console.log("update ", k, " with ", loadedState[k])
-    //     (this as any)[k] = loadedState[k];
-    //     this._notifySubscribers(k, (this as any)[k]);
-    //   }
+        //   if (isPrimitive((this as any)[k])) {
+        //     // console.log("update ", k, " with ", loadedState[k])
+        //     (this as any)[k] = loadedState[k];
+        //     this._notifySubscribers(k, (this as any)[k]);
+        //   }
 
-    //   else
-    //     updateState(this, k, loadedState[k]);
-    // }
+        //   else
+        //     updateState(this, k, loadedState[k]);
+        // }
 
-    for (let k in loadedState)
-      if (!k.startsWith("_"))
-        updateState(this, k, loadedState[k]);
+        for (let k in loadedState)
+          if (!k.startsWith("_"))
+            updateState(this, k, loadedState[k]);
 
-    reviveReferences(this, data);
-    // this.resumeSubscribers();
-    this._commitTransaction();
+        reviveReferences(this, data);
+        // this.resumeSubscribers();
+
+      });
+    });
   }
 
   _inTransaction: boolean = false;
@@ -91,13 +94,13 @@ export class RootStateImpl<T> extends stateObjectMixin<{}>() {
   // _onTransactionComplete(key: any, listener: () => void) { 
   //   this._transactionCompleteListeners.set(key, listener);
   // }
-  _transaction(transactionBody: () => void) {
+  _transaction<R>(transactionBody: () => R) : R {
     if (this._inTransaction)
-      transactionBody();
+      return transactionBody();
     else {
       try {
         this._beginTransaction();
-        transactionBody();
+        return transactionBody();
       } finally {
         this._commitTransaction();
       }

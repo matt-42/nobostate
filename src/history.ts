@@ -37,7 +37,7 @@ export interface HistoryAnyAction {
 type HistoryAction = HistoryUpdatePropAction | HistoryArrayAction | HistoryTableAction | HistoryAnyAction;
 
 interface HistoryGroup {
-  mergeId: string | null;
+  groupId: string | null;
   actions: HistoryAction[];
 }
 
@@ -53,8 +53,38 @@ export class NoboHistory {
     this.rootState = root;
   }
 
-  startGroup() { this.grouping++; }
-  endGroup() { this.grouping--; if (this.grouping < 0) throw new Error(); }
+  startGroup(groupId: string | null = null) {
+
+    // Create a new group only if:
+    if (!this.grouping && // we are not already in a group
+      !this.notRecording && // history recording is active
+      // and groupId is null or if it is different from the last history group.
+      (groupId === null || _.last(this.history)?.groupId !== groupId)
+    ) {
+      // console.log("new group,", _.last(this.history)?.groupId, groupId)
+      this.history.push({ groupId, actions: [] });
+      this.currentHistoryIndex++;
+      // console.log(_.last(this.history)?.groupId);
+    }
+
+    this.grouping++;
+
+  }
+  endGroup() {
+    this.grouping--;
+    if (this.grouping < 0) throw new Error();
+
+    // If we are ending of an empty history group, remove it. 
+    if (this.grouping === 0 && _.last(this.history)?.actions.length === 0) {
+      if (this.currentHistoryIndex === this.history.length - 1)
+        this.currentHistoryIndex--;
+
+      let empty = this.history.pop();
+
+      if (empty?.actions.length)
+        throw new Error();
+    }
+  }
 
   ignore<R>(f: () => R): R {
     this.notRecording++;
@@ -66,27 +96,27 @@ export class NoboHistory {
   }
 
   group<R>(f: () => R): R;
-  group<R>(mergeId: string, f: () => R): R;
-  group<R>(mergeId_: string | (() => R), f_?: () => R): R {
+  group<R>(groupId: string, f: () => R): R;
+  group<R>(groupId_: string | (() => R), f_?: () => R): R {
     // if the last group has not the same merge id,
     // create a new group.
-    // console.log(this.history.map(i => i.mergeId));
+    // console.log(this.history.map(i => i.groupId));
 
-    let f = f_ || mergeId_ as () => R;
-    let mergeId = f_ ? (mergeId_ as string) : null;
+    let f = f_ || groupId_ as () => R;
+    let groupId = f_ ? (groupId_ as string) : null;
 
-    if (!this.grouping && !this.notRecording && (mergeId === null || _.last(this.history)?.mergeId !== mergeId)) {
-      // console.log("new group,", _.last(this.history)?.mergeId, mergeId)
-      this.history.push({ mergeId, actions: [] });
-      this.currentHistoryIndex++;
-      // console.log(_.last(this.history)?.mergeId);
-    }
+    // if (!this.grouping && !this.notRecording && (groupId === null || _.last(this.history)?.groupId !== groupId)) {
+    //   // console.log("new group,", _.last(this.history)?.groupId, groupId)
+    //   this.history.push({ groupId, actions: [] });
+    //   this.currentHistoryIndex++;
+    //   // console.log(_.last(this.history)?.groupId);
+    // }
     // else 
-    // console.log("no new group,", _.last(this.history)?.mergeId, mergeId)
+    // console.log("no new group,", _.last(this.history)?.groupId, groupId)
 
-    // console.log(this.history.map(i => i.mergeId));
+    // console.log(this.history.map(i => i.groupId));
 
-    this.startGroup();
+    this.startGroup(groupId);
     try {
       return f();
     } finally {
@@ -130,11 +160,14 @@ export class NoboHistory {
 
     // console.log("PUSH NULL");
     // if item is not grouped, push a new item.
-    this.history.push({ mergeId: null, actions: [item] });
+    this.history.push({ groupId: null, actions: [item] });
     this.currentHistoryIndex += 1;
   }
 
   private undoAction(item: HistoryAction) {
+    // this.rootState._loggerObject?.log("Undo");
+    // this.rootState._loggerObject?.log(item);
+
     if (item.action === "anyAction")
       item.undo();
     else if (item.action === "updateProp") {
@@ -143,8 +176,7 @@ export class NoboHistory {
       //   throw new Error();
       item.target[item.prop] = item.prev;
     }
-    else if (item.action === "remove")
-    {
+    else if (item.action === "remove") {
       // console.log("UNDO remove: ", item.element.id);
       item.target.insert(item.element);
     }
@@ -176,8 +208,13 @@ export class NoboHistory {
     // console.log("START UNDO.");
     this.rootState._transaction(() => {
       this.ignore(() => {
+
         let group = this.history[this.currentHistoryIndex];
-        if (!group) return;
+        if (!group) {
+          // console.log(`Undo: Nothing to undo. ${this.history.length}`);
+          return;
+        }
+        // console.log(`Undo a group of ${group.actions.length} actions`);
         for (let i = group.actions.length - 1; i >= 0; i--)
           this.undoAction(group.actions[i]);
         this.currentHistoryIndex -= 1;

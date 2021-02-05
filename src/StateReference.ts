@@ -82,8 +82,9 @@ function stateReferenceMixin<T extends HasId<any>>() {
         (obj._parent as StateTable<T>).remove(obj.id);
     }
 
-    _subscribeRef(listener: (ref: this) => void) {
+    _subscribeRef(listener: (ref: this) => void, initCall: boolean = false) {
       this._refListeners.push(listener);
+      if (initCall) listener(this);
       return () => {
         _.remove(this._refListeners, l => l === listener);
       };
@@ -223,7 +224,7 @@ export type StateReference<T> = StateBaseInterface<T> & {
   _isStateReference: boolean;
   _toInitialize: IdType<T> | T | null;
 
-  _subscribeRef(listener: (ref: StateReference<T>) => void): () => void;
+  _subscribeRef(listener: (ref: StateReference<T>) => void, initCall?: boolean): () => void;
   set(idOrNewObj: IdType<T> | StateObject<T> | T | null, notify?: boolean): void;
   ref: StateObject<T> | null;
 }

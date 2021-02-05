@@ -36,9 +36,15 @@ export function stateObjectMixin<T>() {
       return () => _.remove(this._removeListeners, l => l === listener);
     }
 
+    set<K extends keyof T>(key: K, val: T[K]) {
+      // let prev = (this as any)[key];
+      (this as any)[key] = val;
+    }
+
     _update(value: { [K in keyof T]?: T[K] }) {
+      const thisWithProxy = createStateObjectProxy(this);
       for (let k in value)
-        updateState(this, k, value[k]);
+        updateState(thisWithProxy, k, value[k]);
     }
 
     _registerChild(propOrId: any, child: any) {
@@ -100,7 +106,7 @@ export function createStateObjectProxy<T extends Object>(wrapped: T) {
       if ((prop as string).startsWith("_"))
         (target as any)[prop as string] = value;
       else
-        updateState(target, prop, value)
+        updateState(receiver, prop, value)
         // (target as any)._set(prop, value);
       return true;
     },
