@@ -208,12 +208,10 @@ export function useNoboMapSelector<T extends HasId<any>, R>(table: StateTable<T>
 }
 
 export function useNoboIds<T extends HasId<any>>(table: StateTable<T>) {
-  const [ids, setIds] = useState<IdType<T>[]>([...table.keys()]);
-  const update = () => setIds([...table.keys()]);
+  const [ids, setIds] = useState<IdType<T>[]>(table.ids());
 
   useEffect(() => {
-    let disposers = [table.onInsert(update), table.onKeyDelete(update)];
-    return () => disposers.forEach(f => f());
+    return table._subscribeIds(setIds);
   }, []);
 
   return ids;

@@ -37,6 +37,14 @@ export function stateTableMixin<T extends HasId<any>>() {
 
     ids() { return [...this.keys()]; }
 
+    _subscribeIds(listener: (ids: IdType<T>[]) => void) {
+      let disposers = [
+        this.onInsert(() => listener(this.ids())),
+        this.onKeyDelete(() => listener(this.ids()))
+      ];
+      return () => disposers.forEach(f => f());
+    }
+
     map<R>(f: (o: StateObject<T>) => R) { return [...this.values()].map(f); }
     flatMap<R>(f: (o: StateObject<T>) => R[]) { return [...this.values()].flatMap(f); }
     find(predicate: (o: StateObject<T>) => boolean) { return [...this.values()].find(predicate); }
@@ -48,7 +56,7 @@ export function stateTableMixin<T extends HasId<any>>() {
 
     _insertListeners: ((o: StateObject<T>) => void)[] = [];
     onInsert(listener: (o: StateObject<T>) => void): () => void {
-      const ignoredListener =  (o: StateObject<T>) => this._getRootState()._history.ignore(() => listener(o));
+      const ignoredListener = (o: StateObject<T>) => this._getRootState()._history.ignore(() => listener(o));
       this._insertListeners.push(ignoredListener);
       return () => _.remove(this._insertListeners, l => l === ignoredListener);
     }
@@ -116,8 +124,7 @@ export function stateTableMixin<T extends HasId<any>>() {
         this._notifySubscribers(id, elt);
         // console.log(this._getRootState());
         // console.log(this._getRootState()._history);
-        if (this._insertListeners.length)
-        {
+        if (this._insertListeners.length) {
           this._logger()?.groupLog(`Calling onInsert listeners for ${this._path()}`);
           [...this._insertListeners].forEach(f => this._runNotification(f, elt));
           this._logger()?.groupEnd();
@@ -227,14 +234,13 @@ export function stateTableMixin<T extends HasId<any>>() {
 
           // [...eltToDelete._removeListeners].forEach((f: any) => this._runNotification(f, eltToDelete));
 
-          if (eltToDelete._removeListeners.length)
-          {
+          if (eltToDelete._removeListeners.length) {
             this._logger()?.groupLog(`Calling onDelete listeners of ${eltToDelete._path()}`);
             [...eltToDelete._removeListeners].forEach((f: any) => f(eltToDelete));
             eltToDelete._removeListeners.length = 0;
             this._logger()?.groupEnd();
           }
-  
+
 
           // Then we remove the element from the table.
           // Note: we must do it after removelisteners because they may need to retreive info
@@ -284,6 +290,7 @@ export interface StateTableInterface<T> extends StateBaseInterface<Map<IdType<T>
   flatMap<R>(f: (o: StateObject<T>) => R[]): R[];
   find(predicate: (o: StateObject<T>) => boolean): StateObject<T>;
 
+  _subscribeIds(listener: (ids: IdType<T>[]) => void): () => void;
 
   _insertListeners: ((o: StateObject<T>) => void)[];
   onInsert(listener: (o: StateObject<T>) => void): () => void;

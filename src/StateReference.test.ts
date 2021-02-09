@@ -96,7 +96,7 @@ test('update-ref-with-equal', () => {
 });
 
 
-test('ref-change-listening', () => {
+test('ref-change-should-not-forward', () => {
   let state = createState({
     table1: stateTable<Test>(),
     table2: stateTable<{ id: string, ref: StateReference<Test> }>(),
@@ -113,12 +113,6 @@ test('ref-change-listening', () => {
   let called = false;
   state.table2.assertGet("1")._subscribe(() => called = true);
   state.table1.assertGet("1").text = "a";
-  expect(called).toBe(true);
-
-  // must unsubscribe.
-  state.table2.assertGet("1").ref.set(null);
-  called = false;
-  state.table1.assertGet("1").text = "b";
   expect(called).toBe(false);
 
 });

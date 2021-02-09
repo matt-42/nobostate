@@ -153,7 +153,9 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
       refDisposer.push(ref._addBackReference(this._specs(), this._parent));
 
       // Listen to change in ref.
-      refDisposer.push(ref._onChange(() => this._notifyThisSubscribers()));
+      // Actually no, do not forward notifications. let the user decide with ref he want to listen to.
+      // Forwarding changes in ref lead to too many unneeded notifications.
+      // refDisposer.push(ref._onChange(() => this._notifyThisSubscribers()));
 
       // Setup on ref delete behaviors.
       refDisposer.push(ref._onDeleteInternal(() => {

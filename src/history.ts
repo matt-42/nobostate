@@ -95,6 +95,18 @@ export class NoboHistory {
     }
   }
 
+  async asyncIgnore<R>(f: () => Promise<R>): Promise<R> {
+    this.notRecording++;
+    try {
+      const res = await f();
+      this.notRecording--;
+      return res;
+    } catch(e) {
+      this.notRecording--;
+      throw e;
+    }
+  }
+
   group<R>(f: () => R): R;
   group<R>(groupId: string, f: () => R): R;
   group<R>(groupId_: string | (() => R), f_?: () => R): R {

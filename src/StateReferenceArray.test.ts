@@ -53,21 +53,14 @@ test('reference-array', () => {
   expect(state.table2.get("1").refs[0].text).toBe("a");
   expect(state.table2.get("1").refs[1].text).toBe("b");
 
-  // Update ref must signal this. 
+  // Update ref in array must not signal this. 
   let called = false;
   state.table2.assertGet("1")._subscribe(() => called = true);
 
   state.table1.assertGet("42").text = "c";
   expect(state.table2.get("1").refs[0].text).toBe("c");
 
-  expect(called).toBeTruthy();
-
-  state.table2.assertGet("1").refs.remove(o => o.id === "42");
-  called = false;
-  state.table1.assertGet("42").text = "d";
   expect(called).toBeFalsy();
-
-
 
 });
 

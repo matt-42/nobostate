@@ -163,8 +163,10 @@ function stateReferenceMixin<T extends HasId<any>>() {
       });
 
       // Listen to change in ref.
-      if (this._ref)
-        this._disposeRefOnChange = this._ref._onChange(() => this._notifyThisSubscribers());
+      // No, do not forward notifications. let the user decide with ref he want to listen to.
+      // Forwarding changes in ref lead to too many unneeded notifications.
+      // if (this._ref)
+      //   this._disposeRefOnChange = this._ref._onChange(() => this._notifyThisSubscribers());
 
       // Set on delete behaviors.
       if (this._ref) {
