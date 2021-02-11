@@ -69,10 +69,11 @@ export function stateTableMixin<T extends HasId<any>>() {
     attach(fun: (o: StateObject<T>) => (() => void) | undefined) {
       let disposed = false;
 
+      const onRemoveDisposers = [] as (() => void)[];
       const attachToObject = (object: StateObject<T>) => {
         let onRemove = fun(object);
         if (onRemove)
-          object._onDelete(() => { if (!disposed && onRemove) onRemove(); });
+          onRemoveDisposers.push(object._onDelete(() => { if (!disposed && onRemove) onRemove(); }));
       }
 
       let disposeOnInsert = this.onInsert(attachToObject);
@@ -80,7 +81,7 @@ export function stateTableMixin<T extends HasId<any>>() {
       for (let obj of this.values())
         attachToObject(obj);
 
-      return () => { disposeOnInsert(); disposed = true; }
+      return () => { disposeOnInsert(); onRemoveDisposers.forEach(f => f()); disposed = true; }
     }
 
     insert(value: T | StateObject<T>): StateObject<T> {
@@ -295,7 +296,7 @@ export interface StateTableInterface<T> extends StateBaseInterface<Map<IdType<T>
   _insertListeners: ((o: StateObject<T>) => void)[];
   onInsert(listener: (o: StateObject<T>) => void): () => void;
 
-  attach(fun: (o: StateObject<T>) => (() => void) | void): void;
+  attach(fun: (o: StateObject<T>) => (() => void) | void): () => void;
 
   insert(elt: T | StateObject<T>): StateObject<T>;
 

@@ -13,6 +13,14 @@ export function useNoboState<T>(state: T): T {
   return useNoboStateImpl(state);
 }
 
+export function useMounted() {
+  const mounted = useMemo(() => { return { current: true } }, []);
+  useEffect(() => {
+    return () => { mounted.current = false };
+  }, [mounted]);
+  return mounted;
+}
+
 export function useNoboStateImpl(state: any, prop?: any) {
 
   const [, setRefreshToggle] = useState({});
@@ -24,12 +32,16 @@ export function useNoboStateImpl(state: any, prop?: any) {
   }
 
   const [value, setValue] = useState(getValue());
+  const mounted = useMounted();
 
   useEffect(() => {
     let listener = _.throttle(() => {
-      setRefreshToggle({});
-      // setValue must be called after setRefreshToggle otherwise it misses refreshes in react-tree-fiber
-      setValue(getValue());
+      if (mounted.current)
+      {
+        setRefreshToggle({});
+        // setValue must be called after setRefreshToggle otherwise it misses refreshes in react-tree-fiber
+        setValue(getValue());
+      }
     }, 16);
 
     if (prop === "__ref__")
@@ -76,16 +88,21 @@ export function useNoboKey<T, K extends ExtractKeys<T>>(state_: T, key: K): KeyA
   const getValue = useCallback(() => (state as any as StateBaseInterface<any>)._get(key), []);
   const [value, setValue] = useState(getValue());
 
+  const mounted = useMounted();
+
   useEffect(() => {
     let i = 0;
     let listener = _.throttle(() => {
-      setRefreshToggle(++i);
-      // setValue must be called after setRefreshToggle otherwise it misses refreshes in react-tree-fiber
-      setValue(getValue());
+      if (mounted.current)
+      {
+        setRefreshToggle(++i);
+        // setValue must be called after setRefreshToggle otherwise it misses refreshes in react-tree-fiber
+        setValue(getValue());
+      }
     }, 16);
     return state._subscribeKey(key, listener);
 
-  }, [setRefreshToggle, setValue, key, getValue]);
+  }, [mounted, setRefreshToggle, setValue, key, getValue]);
   return value as any;
 }
 
@@ -105,11 +122,16 @@ export function useNoboKeys<T, K extends Array<ExtractKeys<T>>>
 
   const [value, setValue] = useState(getValue());
 
+  const mounted = useMounted();
+
   useEffect(() => {
     let listener = _.throttle(() => {
-      setRefreshToggle({});
-      // setValue must be called after setRefreshToggle otherwise it misses refreshes in react-tree-fiber
-      setValue(getValue());
+      if (mounted.current)
+      {
+        setRefreshToggle({});
+        // setValue must be called after setRefreshToggle otherwise it misses refreshes in react-tree-fiber
+        setValue(getValue());
+      }
     }, 16);
 
     keys.forEach(k => state._subscribeKey(k, listener));
@@ -137,22 +159,27 @@ export function useNoboSelector<T, R>(state: T, selector: (o: T) => R): R {
   const ctx = useMemo(() => { return { prev: null as any }; }, []);
 
   const getComparable = (x: any) => (x as any as StateBaseInterface<any>)?._isStateBase ? unwrapState(x) : x;
+  const mounted = useMounted();
+
   useEffect(() => {
     return (state as any as StateBaseInterface<any>)._subscribe(_.throttle(
       () => {
-        let next = selector(state);
-        let nextComparable = getComparable(next);
-        if (!_.isEqual(ctx.prev, nextComparable)) {
-          ctx.prev = nextComparable;
-          setRefreshToggle({});
-          // setValue must be called after setRefreshToggle otherwise it misses refreshes in react-tree-fiber
-          setValue(next);
+        if (mounted.current)
+        {
+          let next = selector(state);
+          let nextComparable = getComparable(next);
+          if (!_.isEqual(ctx.prev, nextComparable)) {
+            ctx.prev = nextComparable;
+            setRefreshToggle({});
+            // setValue must be called after setRefreshToggle otherwise it misses refreshes in react-tree-fiber
+            setValue(next);
+          }
         }
 
       }
       , 50, { trailing: true })
     );
-  }, []);
+  }, [mounted]);
 
   // Run the selector at every render to be sure we are in sync.
   let actualValue = selector(state);
@@ -184,21 +211,27 @@ export function useNoboRefKey<T extends HasId<any>>(state: StateReference<T>, ke
 
   const [value, setValue] = useState(getValue());
 
+  const mounted = useMounted();
+
   useEffect(() => {
     let dispose: null | (() => void) = null;
     let listener = _.throttle(() => {
       // Ref changed.
       dispose?.();
       dispose = state.ref?._subscribeKey(key, () => {
-        setRefreshToggle({});
-        // setValue must be called after setRefreshToggle otherwise it misses refreshes in react-tree-fiber
-        setValue(getValue());
+        if (mounted.current)
+        {          
+          setRefreshToggle({});
+          // setValue must be called after setRefreshToggle otherwise it misses refreshes in react-tree-fiber
+          setValue(getValue());
+        }
       }, true) || null;
     }, 16);
 
     return state._subscribeRef(listener);
 
-  }, []);
+  }, [mounted]);
+
   return value;
 }
 
