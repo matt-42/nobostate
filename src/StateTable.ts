@@ -56,7 +56,8 @@ export function stateTableMixin<T extends HasId<any>>() {
 
     _insertListeners: ((o: StateObject<T>) => void)[] = [];
     onInsert(listener: (o: StateObject<T>) => void): () => void {
-      const ignoredListener = (o: StateObject<T>) => this._getRootState()._history.ignore(() => listener(o));
+      // Fixme remove onInsertInternal, seems like it's useless.
+      const ignoredListener = listener;//(o: StateObject<T>) => this._getRootState()._history.ignore(() => listener(o));
       this._insertListeners.push(ignoredListener);
       return () => _.remove(this._insertListeners, l => l === ignoredListener);
     }
