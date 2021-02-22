@@ -1,7 +1,7 @@
 import _ from "lodash";
 import { NoboHistory } from "./history";
 import { propagatePropIds, PropSpec } from "./prop";
-import { anyStateObject, createStateObjectProxy, StateObject, stateObjectMixin } from "./StateObject";
+import { createStateObjectProxy, StateObject, stateObjectMixin } from "./StateObject";
 import { revive, reviveReferences } from "./unwrap_revive";
 import { updateState } from "./updateState";
 
@@ -34,29 +34,14 @@ export class RootStateImpl<T> extends stateObjectMixin<{}>() {
   _load(data: any) {
     this._transaction(() => {
       this._history.ignore(() => {
-        // this.pauseSubscribers();
         let loadedState = revive(data);
-
-        // for (let k in loadedState) {
-        //   if ((k as string).startsWith("_")) continue;
-
-        //   if (isPrimitive((this as any)[k])) {
-        //     // console.log("update ", k, " with ", loadedState[k])
-        //     (this as any)[k] = loadedState[k];
-        //     this._notifySubscribers(k, (this as any)[k]);
-        //   }
-
-        //   else
-        //     updateState(this, k, loadedState[k]);
-        // }
 
         for (let k in loadedState)
           if (!k.startsWith("_"))
             updateState(this, k, loadedState[k]);
 
         reviveReferences(this, data);
-        // this.resumeSubscribers();
-
+        
       });
     });
   }
@@ -66,19 +51,15 @@ export class RootStateImpl<T> extends stateObjectMixin<{}>() {
 
   _beginTransaction() {
     this._inTransaction = true;
-    // console.log("Start transaction");
   }
   _commitTransaction() {
-    // console.log("END transaction start");
-    // Do not record state update or listeners in history.
+    // Do not record state update of listeners in history.
     this._history.ignore(() => {
 
       while (this._transactionCompleteListeners.size) {
-        // console.log("this._transactionCompleteListeners.size", this._transactionCompleteListeners.size);
         this._transactionCompleteListeners.forEach((argsArray, listener) => {
           const clone = [...argsArray];
           argsArray.length = 0;
-          // console.log("pop _transactionCompleteListeners");
           clone.forEach(args => listener(...args));
           if (argsArray.length === 0)
             this._transactionCompleteListeners.delete(listener);
@@ -87,13 +68,8 @@ export class RootStateImpl<T> extends stateObjectMixin<{}>() {
 
     });
 
-    // this._transactionCompleteListeners.clear();
-    // console.log("END transaction");
     this._inTransaction = false;
   }
-  // _onTransactionComplete(key: any, listener: () => void) { 
-  //   this._transactionCompleteListeners.set(key, listener);
-  // }
   _transaction<R>(transactionBody: () => R) : R {
     if (this._inTransaction)
       return transactionBody();
@@ -138,15 +114,8 @@ export function makeRootState<T>(state: T, propId: PropSpec, options?: { log: bo
 
   let wrapped = createStateObjectProxy(new RootStateImpl(state, options));
 
-  // wrapped._update(state);
-  // for (let k in state)
-  //   (wrapped as any)[k] = state[k];
-  // wrapped._update(new RootStateImpl() as any);
-
   propagatePropIds(wrapped, propId);
 
-
   return wrapped as any as RootState<T>;
-  // return createProxy<RootState<T>>(root as any);
 }
 
