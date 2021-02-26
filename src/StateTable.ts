@@ -57,7 +57,10 @@ export function stateTableMixin<T extends HasId<any>>() {
     _insertListeners: ((o: StateObject<T>) => void)[] = [];
     onInsert(listener: (o: StateObject<T>) => void): () => void {
       // Fixme remove onInsertInternal, seems like it's useless.
-      const ignoredListener = listener;//(o: StateObject<T>) => this._getRootState()._history.ignore(() => listener(o));
+      // const ignoredListener = listener;//(o: StateObject<T>) => this._getRootState()._history.ignore(() => listener(o));
+      
+      const ignoredListener = (o: StateObject<T>) => { if (!(o as any).__removed__) listener(o); };
+
       this._insertListeners.push(ignoredListener);
       return () => _.remove(this._insertListeners, l => l === ignoredListener);
     }
@@ -247,8 +250,9 @@ export function stateTableMixin<T extends HasId<any>>() {
           // Then we remove the element from the table.
           // Note: we must do it after removelisteners because they may need to retreive info
           // about the element being removed.
-          // console.log(`${this._path()}: remove id`, id);
-          this.delete(id);
+          if (!this.delete(id))
+            throw new Error();
+          this._logger()?.log(`Deleted ${eltToDelete._path()}`);
 
           this._keyDeleteListeners.forEach(f => f());
           [...this._thisSubscribers].forEach(f => this._runNotification(f, this, id));
@@ -276,6 +280,7 @@ export function stateTableMixin<T extends HasId<any>>() {
       this._logger()?.groupEnd();
 
       eltToDelete.__beingRemoved__ = undefined;
+      eltToDelete.__removed__ = true;
     }
 
   }

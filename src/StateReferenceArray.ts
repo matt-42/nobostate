@@ -106,7 +106,8 @@ export function stateReferenceArrayMixin<T extends HasId<any>>() {
 
         this._logger()?.groupEnd();
       });
-      this._notifyThisSubscribers();
+      if (elementsRemoved.length > 0)
+        this._notifyThisSubscribers();
       return elementsRemoved;
     }
 
