@@ -1,5 +1,6 @@
 import _ from "lodash";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { autorun } from "./autorun";
 import { RootState } from "./RootState";
 import { StateArray, StateObjectArray } from "./StateArray";
 import { Keys, StateBaseInterface } from "./StateBase";
@@ -156,9 +157,8 @@ export function useNoboSelector<T, R>(state: StateTable<T>, selector: (o: typeof
 export function useNoboSelector<T, R>(state: StateArray<T>, selector: (o: typeof state) => R): R;
 export function useNoboSelector<T, R>(state: StateObjectArray<T>, selector: (o: typeof state) => R): R;
 export function useNoboSelector<T, R>(state: StateReference<T>, selector: (o: typeof state) => R): R;
-export function useNoboSelector<T, R>(state: StateReferenceArray<T>, selector: (o: typeof state) => R): R;
+export function useNoboSelector<T extends HasId<any>, R>(state: StateReferenceArray<T>, selector: (o: typeof state) => R): R;
 export function useNoboSelector<T, R>(state: StateReferenceNotNull<T>, selector: (o: typeof state) => R): R;
-export function useNoboSelector<T, R>(state: StateReferenceArray<T>, selector: (o: typeof state) => R): R;
 export function useNoboSelector<T, R>(state: T, selector: (o: T) => R): R {
   const refresh = useRefreshThisComponent();
   const [value, setValue] = useState(selector(state));
@@ -257,4 +257,15 @@ export function useNoboIds<T extends HasId<any>>(table: StateTable<T>) {
   // This use to be simpler with useSelector but the selector is also run of every update
   // of every table object which is useless.
   // return this._useSelector(table => [...table.keys()]); 
+}
+
+export function useNoboObserver<R>(f : () => R) {
+
+  const [state, setState] = useState<R>(null as any);
+
+  useEffect(() => {
+    return autorun(() => { return setState(f()); });
+  }, []);
+
+  return state;
 }

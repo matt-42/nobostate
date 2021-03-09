@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { currentAutorunContext } from "./autorun";
 import { PropSpec, ReferenceSpec } from "./prop";
 import { StateBaseInterface, stateBaseMixin } from "./StateBase";
 import { StateObject } from "./StateObject";
@@ -92,6 +93,7 @@ function stateReferenceMixin<T extends HasId<any>>() {
 
     set(idOrNewObj: IdType<T> | StateObject<T> | T | null, notify = true) {
 
+      currentAutorunContext?.accesses.delete({state: this as any, key: null});
       this._logger()?.groupLog(`Set reference ${this._path()} to: `);
       this._logger()?.log(idOrNewObj);
 
@@ -130,7 +132,7 @@ function stateReferenceMixin<T extends HasId<any>>() {
         else {
           this._ref = null;
         }
-
+        
 
         if (this._ref)
           this._disposeBackReference = this._ref._addBackReference(this._specs(), this._parent);

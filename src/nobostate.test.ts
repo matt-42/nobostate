@@ -95,7 +95,7 @@ function subscribeCheck(state: any, key: any) {
 }
 
 // arrays.
-test('array push', () => {
+test('array-push', () => {
   let state = createState({
     todos: stateObjectArray<Todo>()
   });

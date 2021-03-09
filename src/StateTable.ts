@@ -77,7 +77,14 @@ export function stateTableMixin<T extends HasId<any>>() {
       const attachToObject = (object: StateObject<T>) => {
         let onRemove = fun(object);
         if (onRemove)
-          onRemoveDisposers.push(object._onDelete(() => { if (!disposed && onRemove) onRemove(); }));
+        {
+          // on detach, unsubscribe to onDelete and call the onRemove callback.
+          onRemoveDisposers.push(object._onDelete(() => { if (!disposed && onRemove) { 
+            onRemove(); 
+            _.remove(onRemoveDisposers, f => f === onRemove);
+          }}));
+          onRemoveDisposers.push(onRemove);
+        }
       }
 
       let disposeOnInsert = this.onInsert(attachToObject);

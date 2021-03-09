@@ -2,7 +2,7 @@ import { createState, stateTable, stateArray, stateObjectArray } from "./nobosta
 
 function subscribeTest(state: any, listener: Function, update: () => void) {
   let called = false;
-  let dispose = state._subscribe((s: any, prop: any) => { called = true; listener(s, prop); });
+  let dispose = state._subscribe((s: any, prop: any) => { if (!called) listener(s, prop);  called = true; });
   update();
   expect(called).toBe(true);
   dispose();

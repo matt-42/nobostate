@@ -1,3 +1,4 @@
+import { currentAutorunContext } from "./autorun";
 import { HistoryArrayAction } from "./history";
 import { stateObject } from "./nobostate";
 import { propagatePropIds } from "./prop";
@@ -13,11 +14,11 @@ export function copyStateArray(dst_: StateArray<any> | StateObjectArray<any> | S
 
   if ((dst_ as StateReferenceArray<any>)._isStateReferenceArray) {
     dst.clear();
-    
+
     let srcArray = src as StateReferenceArray<any>;
     if (!srcArray._isStateReferenceArray)
       throw new Error("reference array copy, type error.");
-    
+
     dst.push(...(srcArray._toInitialize || srcArray));
     return;
   }
@@ -100,73 +101,146 @@ export function copyStateArray(dst_: StateArray<any> | StateObjectArray<any> | S
 
 // type StateArray2 = ReturnType<typeof stateArrayMixin>;
 
-let x = new (stateArrayMixin<{ id: number }>());
+// let x = new (stateArrayMixin<{ id: number }>());
 
 // let X = typeof  new (stateArrayMixin<{id : number}>());
 
-type R = ReturnType<typeof stateArrayMixin>
+// type R = ReturnType<typeof stateArrayMixin>
 
 // type T = (typeof stateArrayMixin)<{
 //   id: number;
 // }>.StateArray
 
 
-export function stateArrayMixin<T>() {
+export class StateArray<T> extends stateBaseMixin<{}, typeof Object>(Object)
+{
+  _wrapped = [] as T[];
+  _isStateArray = true;
 
-  return class StateArrayImpl extends stateBaseMixin<T[], Constructor<T[]>>(Array as Constructor<T[]>)
-  {
-    _isStateArray = true;
-    push(...elements: T[]): number {
-      elements.forEach(elt => {
-        super.push(elt);
-        this._notifySubscribers(this.length - 1, elt);
-        this._getRootState()._history.push({
-          action: "push",
-          propId: this._props,
-          target: this as any,
-          element: elt
-        } as HistoryArrayAction)
-      });
-      return this.length;
-    }
+  constructor() {
+    super();
+    return new Proxy(this, {
+      get: (target, prop, receiver) => {
+        let res = Reflect.get(target, prop);
 
-    remove(index: number) {
-      this.splice(index, 1);
-      for (let i = index; i < this.length; i++)
-        this._notifySubscribers(i, this[i]);
+        // console.log("access proxy  ", prop, typeof prop)
 
-    }
+        if (typeof res === "function")
+          return res.bind(target);
+        else if (typeof prop === "number") {
+          // console.log("access proxy number ", prop)
+          return this.get(prop);
+        }
+        else if (typeof prop === "string" && !isNaN(parseInt(prop))) {
+          // console.log("access proxy number ", prop, parseInt(prop))
+          return this.get(parseInt(prop));
+        }
+        else {
+          return res;
+        }
 
-    clear() {
-      this.length = 0;
-      this._parentListener?.();
-      this._thisSubscribers.map(s => s(this, -1));
-    }
-    copy(other: T[]) { copyStateArray(this as any, other); }
+      },
+      set: (target, prop, value, receiver) => {
+        // console.log(' set ',  prop, ' to ', value);
+        if (typeof prop === "number" || typeof prop === "string" && !isNaN(parseInt(prop)))
+          updateState(receiver, prop, value)
+        else
+          (target as any)[prop as string] = value;
+        // (target as any)._set(prop, value);
+        return true;
+      },
+    })
+  }
+  get length() {
+    const l = this._wrapped.length;
+    currentAutorunContext?.accesses.set({ state: this as any, key: null }, true);
+    return l;
+  }
+  set length(l: number) {
+    this._wrapped.length = l;
+    this._notifyThisSubscribers();
+  }
+
+  [index: number] : T; // index access redirected to this.get 
+  get(i : number) { 
+    currentAutorunContext?.accesses.set({ state: this as any, key: i as any }, true);
+    return this._wrapped[i]; 
+  }
+
+  [Symbol.iterator]() {
+    currentAutorunContext?.accesses.set({ state: this as any, key: null }, true);
+    return this._wrapped[Symbol.iterator]();
+  }
+  forEach(f: (elt: T, idx: number, array: T[]) => void) {
+    currentAutorunContext?.accesses.set({ state: this as any, key: null }, true);
+    return this._wrapped.forEach(f);
+  }
+  map<R>(f: (elt: T, idx: number, array: T[]) => R) {
+    currentAutorunContext?.accesses.set({ state: this as any, key: null }, true);
+    return this._wrapped.map(f);
+  }
+  findIndex(f: (elt: T) => boolean) : number {
+    currentAutorunContext?.accesses.set({ state: this as any, key: null }, true);
+    return this._wrapped.findIndex(f);
+  }
+
+  push(...elements: T[]): number {
+    elements.forEach(elt => {
+      this._wrapped.push(elt);
+      this._notifySubscribers(this.length - 1 as never, elt as never);
+      this._getRootState()._history.push({
+        action: "push",
+        propId: this._props,
+        target: this as any,
+        element: elt
+      } as HistoryArrayAction)
+    });
+    return this.length;
+  }
+  _internalSet(index: number, val: T) {
+    this._wrapped[index] = val;
+  }
+
+  remove(index: number) {
+    this._wrapped.splice(index, 1);
+    for (let i = index; i < this.length; i++)
+      this._notifySubscribers(i as never, this._wrapped[i] as never);
 
   }
+
+  pop() {
+    const res = this._wrapped.pop();
+    this._notifyThisSubscribers();
+    return res;
+  }
+
+  clear() {
+    this.length = 0;
+    this._parentListener?.();
+    this._thisSubscribers.map(s => s(this, -1 as never));
+  }
+  copy(other: T[]) { copyStateArray(this as any, other); }
+
 }
 
 
-export function stateObjectArrayMixin<T>() {
+export class StateObjectArray<T> extends StateArray<T>
+{
+  _isStateObjectArray = true;
 
-  return class StateObjectArray extends stateArrayMixin<StateObject<T>>()
-  {
-    _isStateObjectArray = true;
+  push(...elements: T[]): number {
+    elements.forEach(value => {
 
-    push(...elements: T[]): number {
-      elements.forEach(value => {
-
-        let elt = stateObject<T>(value);
-        super.push(elt);
-        this._registerChild(this.length - 1, elt);
-        propagatePropIds(elt, this._props);
-      });
-      return this.length;
-    }
-
+      let elt = stateObject<T>(value);
+      super.push(elt);
+      this._registerChild(this.length - 1 as never, elt as never);
+      propagatePropIds(elt, this._props);
+    });
+    return this.length;
   }
+
 }
+
 
 export interface StateArrayInterface<T> extends StateBaseInterface<T[]> {
   _isStateArray: boolean;
@@ -181,6 +255,6 @@ export interface StateObjectArrayInterface<T> extends StateArrayInterface<T> {
   push(...elements: T[]): number;
 }
 
-export type StateArray<T> = StateArrayInterface<T> & T[];
-export type StateObjectArray<T> = StateObjectArrayInterface<T> & StateObject<T>[];
+// export type StateArray<T> = StateArrayInterface<T>;
+// export type StateObjectArray<T> = StateObjectArrayInterface<T>;
 

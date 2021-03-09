@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { autorunIgnore, currentAutorunContext } from "./autorun";
 import { ReferenceSpec } from "./prop";
 import { StateBaseInterface, stateBaseMixin } from "./StateBase";
 import { updateState } from "./updateState";
@@ -36,7 +37,7 @@ export function stateObjectMixin<T>() {
       return () => _.remove(this._removeListeners, l => l === listener);
     }
 
-    set<K extends keyof T>(key: K, val: T[K]) {
+    _internalSet<K extends keyof T>(key: K, val: T[K]) {
       // let prev = (this as any)[key];
       (this as any)[key] = val;
     }
@@ -95,18 +96,29 @@ export function createStateObjectProxy<T extends Object>(wrapped: T) {
       let res = Reflect.get(target, prop);
       // if (res === "_use")
       //   return () => useNoboState(receiver);
+
       if (typeof res === "function")
         return res.bind(target);
-      else
+      else {
+        if (typeof prop == "string" &&  !(prop as string).startsWith("_") && !res?._isStateBase)
+        {
+          // console.log("key acccess: ", prop);
+          currentAutorunContext?.accesses.set({state: target as any, key: prop as string}, true);
+        }
+        if (res?._isStateReference) {
+          currentAutorunContext?.accesses.set({state: res as any, key: null}, true);
+        }
         return res;//Reflect.get(target, prop, receiver);
+      }
       // return (receiver as any)[prop];
     },
     set: (target, prop, value, receiver) => {
-    // console.log(' set ',  prop, ' to ', value);
+      // console.log(' set ',  prop, ' to ', value);
+      // console.log(' set ',  prop);
       if ((prop as string).startsWith("_"))
         (target as any)[prop as string] = value;
       else
-        updateState(receiver, prop, value)
+        autorunIgnore(() => updateState(receiver, prop, value));
         // (target as any)._set(prop, value);
       return true;
     },

@@ -33,7 +33,7 @@ test('reference-array-remove', () => {
 
 });
 
-test('reference-array', () => {
+test('reference-arrray', () => {
 
   let state = createState({
     table1: stateTable<Test>(),

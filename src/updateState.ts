@@ -114,9 +114,9 @@ export function updateState(dst: any, prop: any, src: any) {
     //   propagatePropIds(src, dst._props[prop]);
 
     // assign the prop to it's new value.
-    if (!dst._isStateObject) throw new Error();
-    // dst[prop] = src;
-    dst.set(prop, src);
+    if (!dst._isStateObject && !dst._isStateArray && !dst._isStateReferenceArray) throw new Error();
+    //dst[prop] = src;
+    dst._internalSet(prop, src);
 
     // if it is different than it's previous version,
     // notify the subscribers.
