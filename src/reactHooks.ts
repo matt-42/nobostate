@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { autorun } from "./autorun";
+import { autorun, Reaction } from "./autorun";
 import { RootState } from "./RootState";
 import { StateArray, StateObjectArray } from "./StateArray";
 import { Keys, StateBaseInterface } from "./StateBase";
@@ -268,4 +268,17 @@ export function useNoboObserver<R>(f : () => R) {
   }, []);
 
   return state;
+}
+
+export function observer<P>(component : React.FunctionComponent<P>) :  React.FunctionComponent<P> {
+
+  return (props: P) => {
+
+    const refresh = useRefreshThisComponent();
+    const reaction = useMemo(() => new Reaction(refresh), []);
+
+    useEffect(() => () => reaction.dispose(), []);
+
+    return reaction.track(() => component(props)) || null;
+  }
 }

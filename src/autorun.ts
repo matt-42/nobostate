@@ -64,85 +64,87 @@ class AccessInfoMap<V> {
 }
 
 interface AutorunContext {
-  run: AutorunFunction,
   accesses: AccessInfoMap<boolean>
   disposers: AccessInfoMap<() => void>
 }
 
-const autorunContexts = new Map<AutorunFunction, AutorunContext>();
-
 export let currentAutorunContext: AutorunContext | null = null;
-
 
 export function autorun(f: AutorunFunction): () => void {
 
-  // Run the function once.
-  const oneRun = () => {
+  const reaction = new Reaction(() => {});
 
+  const run = () => reaction.track(f);
+  reaction.reactionCallback = run;
+
+  run();
+  return () => reaction.dispose();
+}
+
+export class Reaction {
+
+  ctx: AutorunContext;
+
+  reactionCallback : () => void;
+
+  constructor(reactionCallback : () => void) {
+    this.reactionCallback = reactionCallback;
+    this.ctx = {
+      accesses: new AccessInfoMap<boolean>(),
+      disposers: new AccessInfoMap<() => void>()
+    };
+  }
+
+  dispose() {
+    this.ctx.disposers.forall(f => f[1]());
+  }
+
+  track<R>(trackedFunction: () => R) {
     if (currentAutorunContext) {
       // console.warn("Nested runs of autorun are forbidden.");
       return;
     }
 
     // retrieve the context.
-    currentAutorunContext = autorunContexts.get(f) as AutorunContext;
-    if (!currentAutorunContext)
-      throw new Error("Internal nobostate error: missing autorun context");
+    currentAutorunContext = this.ctx;
 
     // console.log("START AUTORUN.");
     // run the autorun function
-    const res = f();
+    const res = trackedFunction();
     // console.log("AUTORUN END.");
 
     // currentAutorunContext.accesses.forall(pair => {
     // console.log("  got access to ", pair[0].key);
     // })
     // dispose to outdated subscribers.
-    currentAutorunContext.disposers.forall(acc => {
-      if (!currentAutorunContext?.accesses.has(acc[0])) {
+    this.ctx.disposers.forall(acc => {
+      if (!this.ctx.accesses.has(acc[0])) {
         // console.log(`unsubscribe to ${acc[0].key}`);
-        currentAutorunContext?.disposers.get(acc[0])?.();
-        currentAutorunContext?.disposers.delete(acc[0]);
+       this.ctx.disposers.get(acc[0])?.();
+       this.ctx.disposers.delete(acc[0]);
       }
     });
     // subsribe to new dependencies.
-    currentAutorunContext.accesses.forall(acc => {
+   this.ctx.accesses.forall(acc => {
       if (!currentAutorunContext?.disposers.has(acc[0])) {
         // console.log(`subscribe to ${acc[0].key}`);
-        const {state, key} = acc[0];
+        const { state, key } = acc[0];
         if (key === null || (Array.isArray(state) && key === "length"))
-          currentAutorunContext?.disposers.set({state, key: null}, state._subscribe(oneRun));
+         this.ctx.disposers.set({ state, key: null }, state._subscribe(this.reactionCallback));
         else
-          currentAutorunContext?.disposers.set(acc[0], state._subscribeKey(key, oneRun));
+         this.ctx.disposers.set(acc[0], state._subscribeKey(key, this.reactionCallback));
       }
     });
 
     // save previousAccesses.
-    currentAutorunContext.accesses.clear();
+   this.ctx.accesses.clear();
 
     // clear current context.
     currentAutorunContext = null;
 
     return res;
+
   }
-
-  let ctx = autorunContexts.get(f);
-  if (!ctx) {
-    ctx = {
-      run: oneRun,
-      accesses: new AccessInfoMap<boolean>(),
-      disposers: new AccessInfoMap<() => void>()
-    }
-    autorunContexts.set(f, ctx as AutorunContext);
-  }
-
-  // Run the function once to get the dependencies.
-  oneRun();
-
-  return () => {
-    ctx?.disposers.forall(f => f[1]());
-    autorunContexts.delete(f);
-  }
-
 
 }
+
