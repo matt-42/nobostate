@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { currentAutorunContext } from "./autorun";
+import { autorunIgnore, currentAutorunContext } from "./autorun";
 import { PropSpec, ReferenceSpec } from "./prop";
 import { StateBaseInterface, stateBaseMixin } from "./StateBase";
 import { StateObject } from "./StateObject";
@@ -30,6 +30,7 @@ function stateReferenceMixin<T extends HasId<any>>() {
     constructor(idOrObj = null as IdType<T> | T | StateObject<T> | null) {
       super();
       this._toInitialize = idOrObj;
+      this._proxifiedThis = this;
     }
 
     _setProps(props: PropSpec) {
@@ -39,7 +40,7 @@ function stateReferenceMixin<T extends HasId<any>>() {
       }
       super._setProps(props);
 
-      this._parent._onDeleteInternal(() => {
+      this._parent._onRemoveInternal(() => {
 
         if (this._specs()._own) {
           // remove ref when the parent stateobject is deleted.
@@ -93,116 +94,120 @@ function stateReferenceMixin<T extends HasId<any>>() {
 
     set(idOrNewObj: IdType<T> | StateObject<T> | T | null, notify = true) {
 
-      currentAutorunContext?.accesses.delete({state: this as any, key: null});
-      this._logger()?.groupLog(`Set reference ${this._path()} to: `);
-      this._logger()?.log(idOrNewObj);
+      autorunIgnore(() => {
 
-      // console.log("SET REF ", this._path(), "to ", idOrNewObj);
-      // console.trace();
-      if (!this._getRootState()._history)
-        throw new Error("Cannot set a reference on a object unattached to any root state.");
+        currentAutorunContext?.accesses.delete({ state: this as any, key: null });
+        this._logger()?.groupLog(`Set reference ${this._path()} to: `);
+        this._logger()?.log(idOrNewObj);
 
-      // Stop listening to previous ref onDelete.
-      this._disposeReference();
+        // console.log("SET REF ", this._path(), "to ", idOrNewObj);
+        // console.trace();
+        if (!this._getRootState()._history)
+          throw new Error("Cannot set a reference on a object unattached to any root state.");
 
-      // Do not record in history the insert/remove of the referenced object.
-      this._getRootState()._history.group(() => {
+        // Stop listening to previous ref onDelete.
+        this._disposeReference();
 
-        let previousRef = this._ref;
+        // Do not record in history the insert/remove of the referenced object.
+        this._getRootState()._history.group(() => {
 
-        if ((idOrNewObj as StateBaseInterface<any>)?._isStateBase) {
-          this._ref = idOrNewObj as StateObject<T>;
-          // If we will own the object check that is is not already owned. 
-          if (this._specs()._own && this._ref._backReferences(this._specs()).length) {
-            let owner = this._ref._backReferences(this._specs())[0];
-            throw new Error(`Reference is already owned by ${owner._path()}`);
+          let previousRef = this._ref;
+
+          if ((idOrNewObj as StateBaseInterface<any>)?._isStateBase) {
+            this._ref = idOrNewObj as StateObject<T>;
+            // If we will own the object check that is is not already owned. 
+            if (this._specs()._own && this._ref._backReferences(this._specs()).length) {
+              let owner = this._ref._backReferences(this._specs())[0];
+              throw new Error(`Reference is already owned by ${owner._path()}`);
+            }
           }
-        }
-        else if ((idOrNewObj as any)?.id !== undefined) {
-          this._ref = this._referencedTable().insert(idOrNewObj as T)
-        }
-        else if (idOrNewObj !== null) {
-          this._ref = this._referencedTable().get(idOrNewObj as IdType<T>) || null;
-          if (!this._ref)
-            console.warn("StateReference error: trying to reference a non existing id " + idOrNewObj +
-              `. reference : ${this._path()}. referenced table: ${this._referencedTable()._path()} `);
-          // throw new Error("StateReference error: trying to reference a non existing id " + idOrNewObj +
-          // `. reference : ${this._path()}. referenced table: ${this._referencedTable()._path()} `);
-        }
-        else {
-          this._ref = null;
-        }
-        
-
-        if (this._ref)
-          this._disposeBackReference = this._ref._addBackReference(this._specs(), this._parent);
-
-        // let prev = this._previousSetArgument;
-        let currentRef = this._ref;
-        this._getRootState()._history.push({
-          action: "anyAction",
-          target: this,
-          propId: this._props,
-          // undo: () => this.set(prev),
-          // redo: () => this.set(idOrNewObj)
-          undo: () => this.set(previousRef?.id || null),
-          redo: () => {
-            // console.log("REDO SET REF. set ref to ", currentRef?.id);
-            this.set(currentRef?.id || null);
+          else if ((idOrNewObj as any)?.id !== undefined) {
+            this._ref = this._referencedTable().insert(idOrNewObj as T)
           }
-          // undo: () => {
-          //   console.log("UNDO SET REF. set ref to ", previousRef?.id, this._referencedTable().has(previousRef?.id as any));
-          //    this._ref = previousRef ? this._referencedTable().get(previousRef.id) || null : null; },
-          // redo: () => { this._ref = currentRef ? this._referencedTable().get(currentRef.id) || null : null; },
-          // redo: () => this.set(this._ref?.id || null)
+          else if (idOrNewObj !== null) {
+            this._ref = this._referencedTable().get(idOrNewObj as IdType<T>) || null;
+            if (!this._ref)
+              console.warn("StateReference error: trying to reference a non existing id " + idOrNewObj +
+                `. reference : ${this._path()}. referenced table: ${this._referencedTable()._path()} `);
+            // throw new Error("StateReference error: trying to reference a non existing id " + idOrNewObj +
+            // `. reference : ${this._path()}. referenced table: ${this._referencedTable()._path()} `);
+          }
+          else {
+            this._ref = null;
+          }
+
+
+          if (this._ref)
+            this._disposeBackReference = this._ref._addBackReference(this._specs(), this._parent);
+
+          // let prev = this._previousSetArgument;
+          let currentRef = this._ref;
+          this._getRootState()._history.push({
+            action: "anyAction",
+            target: this,
+            propId: this._props,
+            // undo: () => this.set(prev),
+            // redo: () => this.set(idOrNewObj)
+            undo: () => this.set(previousRef?.id || null),
+            redo: () => {
+              // console.log("REDO SET REF. set ref to ", currentRef?.id);
+              this.set(currentRef?.id || null);
+            }
+            // undo: () => {
+            //   console.log("UNDO SET REF. set ref to ", previousRef?.id, this._referencedTable().has(previousRef?.id as any));
+            //    this._ref = previousRef ? this._referencedTable().get(previousRef.id) || null : null; },
+            // redo: () => { this._ref = currentRef ? this._referencedTable().get(currentRef.id) || null : null; },
+            // redo: () => this.set(this._ref?.id || null)
+
+          });
+          this._previousSetArgument = idOrNewObj;
+
+          // remove the referenced object if it is owned.
+          if (this._specs()._own && previousRef) this._removeReferencedObject(previousRef);
 
         });
-        this._previousSetArgument = idOrNewObj;
 
-        // remove the referenced object if it is owned.
-        if (this._specs()._own && previousRef) this._removeReferencedObject(previousRef);
+        // Listen to change in ref.
+        // No, do not forward notifications. let the user decide with ref he want to listen to.
+        // Forwarding changes in ref lead to too many unneeded notifications.
+        // if (this._ref)
+        //   this._disposeRefOnChange = this._ref._onChange(() => this._notifyThisSubscribers());
 
-      });
-
-      // Listen to change in ref.
-      // No, do not forward notifications. let the user decide with ref he want to listen to.
-      // Forwarding changes in ref lead to too many unneeded notifications.
-      // if (this._ref)
-      //   this._disposeRefOnChange = this._ref._onChange(() => this._notifyThisSubscribers());
-
-      // Set on delete behaviors.
-      if (this._ref) {
-        this._disposeRefOnDelete = this._ref._onDeleteInternal(() => {
-          let spec = this._specs();
-          if (spec._onRefDeleted === "set-null") // SET NULL
-            this.set(null);
-          else if (spec._onRefDeleted === "cascade") // CASCADE
-          {
-            this.set(null);
-            (this._parent._parent as StateTable<T>).remove((this._parent as StateObject<T>).id)
-          }
-          else if (typeof spec._onRefDeleted === "function") // CUSTOM CALLBACK.
-          {
-            let prevRef = this._ref;
-            spec._onRefDeleted(this._parent, this._ref);
-            // the _onRefDeleted callback must update the ref. -> actually no, just set null if it did not.
-            if (this._ref === prevRef)
+        // Set on delete behaviors.
+        if (this._ref) {
+          this._disposeRefOnDelete = this._ref._onRemoveInternal(() => {
+            let spec = this._specs();
+            if (spec._onRefDeleted === "set-null") // SET NULL
               this.set(null);
-            // throw new Error(`Foreign key ${spec._path} error: onRefDelete callback did not update the outdated ref.`);
-          }
+            else if (spec._onRefDeleted === "cascade") // CASCADE
+            {
+              this.set(null);
+              (this._parent._parent as StateTable<T>).remove((this._parent as StateObject<T>).id)
+            }
+            else if (typeof spec._onRefDeleted === "function") // CUSTOM CALLBACK.
+            {
+              let prevRef = this._ref;
+              spec._onRefDeleted(this._parent, this._ref);
+              // the _onRefDeleted callback must update the ref. -> actually no, just set null if it did not.
+              if (this._ref === prevRef)
+                this.set(null);
+              // throw new Error(`Foreign key ${spec._path} error: onRefDelete callback did not update the outdated ref.`);
+            }
 
-        });
-      }
+          });
+        }
 
-      if (notify) {
-        this._notifyThisSubscribers();
-        this._refListeners.forEach(l => this._runNotification(l, this));
-      }
+        if (notify) {
+          this._notifyThisSubscribers();
+          this._runNotification(this._refListeners, this);
+          // this._refListeners.forEach(l => this._runNotification(l, this));
+        }
 
-      if (this.ref)
         this._logger()?.log(`${this._path()} now references ${this._ref ? this._ref._path() : "null"}`);
-      this._logger()?.groupEnd();
+        this._logger()?.groupEnd();
+      });
     }
+
   }
 }
 
@@ -210,12 +215,20 @@ export function stateReferenceNotNullMixin<T extends HasId<any>>() {
 
   return class StateReferenceImpl extends stateReferenceMixin<T>()
   {
-    constructor(idOrObj: IdType<T> | T | StateObject<T>) {
-      super(idOrObj);
+    _isStateReferenceNotNull = true;
+
+    // constructor(idOrObj: IdType<T> | T | StateObject<T>) {
+    //   super(idOrObj);
+    // }
+
+    get ref() {
+      if (!this._ref)
+        throw new Error(`Cannot access an uninitialized StateReferenceNotNull. When accessing ${this?._path?.()}`);
+      return this._ref;
     }
 
     set(idOrNewObj: IdType<T> | T | StateObject<T>) {
-      if (this._ref === null && idOrNewObj === null) return;
+      if (idOrNewObj === null) return;
 
       super.set(idOrNewObj);
       // if (!this._ref && !this._parent?.__beingRemoved__)
@@ -233,7 +246,7 @@ export type StateReference<T> = StateBaseInterface<T> & {
   ref: StateObject<T> | null;
 }
 export type StateReferenceNotNull<T> = StateReference<T> & {
-  _isStateReference: boolean;
+  _isStateReferenceNotNull: boolean;
   set(idOrNewObj: IdType<T> | StateObject<T> | T, notify?: boolean): void;
   ref: StateObject<T>;
 }

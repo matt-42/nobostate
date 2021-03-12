@@ -119,7 +119,7 @@ export class StateArray<T> extends stateBaseMixin<{}, typeof Object>(Object)
 
   constructor() {
     super();
-    return new Proxy(this, {
+    this._proxifiedThis = new Proxy(this, {
       get: (target, prop, receiver) => {
         let res = Reflect.get(target, prop);
 
@@ -149,7 +149,8 @@ export class StateArray<T> extends stateBaseMixin<{}, typeof Object>(Object)
         // (target as any)._set(prop, value);
         return true;
       },
-    })
+    });
+    return this._proxifiedThis;
   }
   get length() {
     const l = this._wrapped.length;

@@ -14,7 +14,7 @@
 import { stateArray, stateObject, stateObjectArray, stateTable } from "./nobostate";
 import { StateArray, StateObjectArray } from "./StateArray";
 import { StateObject } from "./StateObject";
-import { nullStateReference, StateReference } from "./StateReference";
+import { nullStateReference, stateReference, StateReference, stateReferenceNotNull } from "./StateReference";
 import { StateReferenceArray, stateReferenceArray } from "./StateReferenceArray";
 import { StateTable } from "./StateTable";
 
@@ -106,7 +106,8 @@ export function revive(state: unwrappedAny): any {
   }
   else if (anyState._stateReference !== undefined) {
     // Refs are initialized after with reviveReferences
-    return nullStateReference();
+    return anyState._notNull ? 
+      stateReferenceNotNull<any>(null) : stateReference<any>(null);
   }
   else if (anyState._stateReferenceArray !== undefined) {
     return stateReferenceArray();
@@ -139,7 +140,7 @@ export function unwrapState<T>(state: T): any {
 
   else if ((state as any)._isStateReference) { // Ref
     let ref = (state as any as StateReference<any>)
-    return { _stateReference: ref.ref ? ref.ref.id : null };
+    return { _stateReference: ref.ref ? ref.ref.id : null, _notNull: (ref as any)._isStateReferenceNotNull };
   }
   else if ((state as any)._isStateReferenceArray) { // Ref Array
     let ref = (state as any as any[])

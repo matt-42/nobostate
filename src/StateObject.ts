@@ -10,14 +10,15 @@ export function stateObjectMixin<T>() {
   return class StateObjectImpl extends stateBaseMixin<T, typeof Object>(Object)
   {
     _isStateObject = true;
-    _removeListeners: ((o: T) => void)[] = [];
     _backReferencesMap: { [p: number]: any } = {}
-
+    
     constructor(src: T) {
       super();
+      this._proxifiedThis = createStateObjectProxy(this);
       this._update(src);
+      return this._proxifiedThis;      
     }
-
+    
     _addBackReference<Parent>(p: ReferenceSpec<any, Parent>, obj: Parent): () => void {
       this._backReferencesMap[p._propId] ||= [];
       this._backReferencesMap[p._propId].push(obj);
@@ -26,38 +27,17 @@ export function stateObjectMixin<T>() {
     _backReferences<Parent>(p: ReferenceSpec<any, Parent>): Parent[] {
       return this._backReferencesMap[p._propId] || [];
     }
- 
-    _onDelete(listener: (o: T) => void) {
-      const ignoredListener =  (o: T) => this._getRootState()._history.ignore(() => listener(o));
-      this._removeListeners.push(ignoredListener);
-      return () => _.remove(this._removeListeners, l => l === ignoredListener);
-    }
-    _onDeleteInternal(listener: (o: T) => void) {
-      this._removeListeners.push(listener);
-      return () => _.remove(this._removeListeners, l => l === listener);
-    }
-
+    
     _internalSet<K extends keyof T>(key: K, val: T[K]) {
       // let prev = (this as any)[key];
       (this as any)[key] = val;
     }
 
     _update(value: { [K in keyof T]?: T[K] }) {
-      const thisWithProxy = createStateObjectProxy(this);
+      const thisWithProxy = this._proxifiedThis;
+      if (!thisWithProxy) throw new Error();
       for (let k in value)
         updateState(thisWithProxy, k, value[k]);
-    }
-
-    _registerChild(propOrId: any, child: any) {
-      if ((child as any)._isStateBase) {
-        let childBase = child as any;
-        // when a child prop change.
-        // we notify childs subscriber and the parent.
-        childBase._parent = createStateObjectProxy(this);
-        childBase._parentListener = () => {
-          this._notifySubscribers(propOrId, child);
-        };
-      }
     }
 
   }
@@ -65,14 +45,11 @@ export function stateObjectMixin<T>() {
 
 class AnyStateObject extends stateObjectMixin<{}>() { };
 export function anyStateObject() {
-  return createStateObjectProxy(new AnyStateObject({}));
+  return new AnyStateObject({});
 }
 
 export interface StateObjectInterface<T> extends StateBaseInterface<T> {
   _isStateObject: boolean;
-  _removeListeners: ((o: T) => void)[];
-  _onDelete(listener: (o: T) => void): () => void;
-  _onDeleteInternal(listener: (o: T) => void): () => void;
   _update(value: { [K in keyof T]?: T[K] }): void;
 
   _addBackReference<Parent>(p: ReferenceSpec<any, Parent>, obj: Parent): () => void;
@@ -90,7 +67,7 @@ export type StateObject<T> = StateObjectInterface<T> & T;
 // const obj = new (stateObjectMixin(X));
 // let t = obj._use("xxx")
 
-export function createStateObjectProxy<T extends Object>(wrapped: T) {
+function createStateObjectProxy<T extends Object>(wrapped: T) {
   const proxy = new Proxy(wrapped, {
     get: (target, prop, receiver) => {
       let res = Reflect.get(target, prop);
@@ -123,7 +100,7 @@ export function createStateObjectProxy<T extends Object>(wrapped: T) {
       return true;
     },
   });
-
+  (wrapped as any)._proxifiedThis = proxy;
   // (wrapped as any)._use = proxy;
   return proxy;
 }

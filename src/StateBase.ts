@@ -1,10 +1,34 @@
 import _ from "lodash";
+import { autorunIgnore } from "./autorun";
 import { NoboHistory } from "./history";
 import { PropSpec, StatePropIdentifiers } from "./prop";
 import { RootState } from "./RootState";
 // import { updateState } from "./updateState";
 
+export function callListeners(
+  listeners: StateBaseInterface<any> | ((...args: any[]) => void)[],
+  ...args: any[]) {
 
+  return autorunIgnore(() => {
+
+    if (!Array.isArray(listeners)) {
+      listeners._parentListener?.();
+      return;
+    }
+    else {
+      // console.log("CALL LISTENERS START");
+      // We clone the listeners because we don't want to
+      // call the listeners that may be added by the present listeners.
+      [...listeners].forEach(l => {
+        // Check if l is still in the original listeners array.
+        // because it may have been removed by other listerners.
+        if (listeners.includes(l) && true)
+          l(...args);
+      });
+      // console.log("CALL LISTENERS END");
+    }
+  });
+}
 
 export type ObjectPropsKeys<T> = {
   [K in keyof T]: T[K] extends Function ? never : K;
@@ -41,6 +65,10 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
 
     _isStateBase = true;
 
+    __removed__ = false;
+
+    _proxifiedThis: this | null = null;
+
     constructor(...args: any[]) {
       super(...args);
     }
@@ -61,6 +89,23 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
         if (nRemoved !== 1)
           throw new Error(`nRemoved ${nRemoved} should be 1`);
       }
+    }
+
+    _removeListeners: ((o: T) => void)[] = [];
+    _onRemove(listener: (o: T) => void) {
+      const ignoredListener = (o: T) => this._getRootState()._history.ignore(() => listener(o));
+      this._removeListeners.push(ignoredListener);
+      return () => _.remove(this._removeListeners, l => l === ignoredListener);
+    }
+    _onRemoveInternal(listener: (o: T) => void) {
+      this._removeListeners.push(listener);
+      return () => _.remove(this._removeListeners, l => l === listener);
+    }
+    _beforeRemoveListeners: ((o: T) => void)[] = [];
+    _onBeforeRemove(listener: (o: T) => void): () => void {
+      const ignoredListener = (o: T) => this._getRootState()._history.ignore(() => listener(o));
+      this._beforeRemoveListeners.push(ignoredListener);
+      return () => _.remove(this._beforeRemoveListeners, l => l === ignoredListener);
     }
 
     _setProps(props: PropSpec) {
@@ -108,7 +153,11 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
       this._thisSubscribers.push(listener);
       if (initCall)
         listener(this, null as any);
-      return () => _.remove(this._thisSubscribers, s => s === listener);
+      return () => {
+        if (_.remove(this._thisSubscribers, s => s === listener).length !== 1) {
+          // throw new Error();
+        }
+      }
     }
 
     _subscribeKey<K extends ThisKeys>(
@@ -118,10 +167,14 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
     ): () => void {
       this._subscribers[key as string] ||= [];
       let subs = this._subscribers[key as string] as ((value: ThisKeyAccessType<K>, key: ThisKeys) => void)[];
-      subs?.push(listener);
+      subs.push(listener);
       if (initCall && (this as any)[key] !== undefined)
         listener((this as any)[key], key);
-      return () => { if (subs) _.remove(subs, s => s === listener); };
+      return () => {
+        if (_.remove(subs, s => s === listener).length !== 1) {
+          // throw new Error();
+        }
+      };
     }
 
     _path() {
@@ -129,7 +182,7 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
       if (!this._parent) return '';
       else {
         let parentPath = this._parent._path();
-        if ((this._parent as any)._isStateTable) 
+        if ((this._parent as any)._isStateTable)
           return parentPath + '[' + (this as any).id + ']';
         else return parentPath + '/' + _.last(this._props._path);
       }
@@ -149,14 +202,15 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
     //   updateState(this, prop, value);
     // }
 
-    _runNotification(listener: (...args: any[]) => void, ...args: any[]) {
+    _runNotification(listeners: this | ((...args: any[]) => void)[],
+      ...args: any[]) {
 
-      if (!(this as any).__beingRemoved__) {
+      if (!(this as any).__beingRemoved__ && !(this as any).__removed__) {
         let root = this._getRootState();
         if (root._notification)
-          root._notification(listener, ...args);
+          root._notification(this, listeners as any, ...args);
         else
-          listener(...args);
+          callListeners(listeners as any, ...args);
       }
     }
 
@@ -164,26 +218,63 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
     // notify subscribers and the parent.
     _notifySubscribers<P extends ThisKeys>(propOrId: P, value: ThisKeyAccessType<P>) {
 
+      this._subscribers[propOrId as string] ||= [];
+      this._runNotification(this._subscribers[propOrId as string], this._get(propOrId), propOrId);
+      this._runNotification(this._thisSubscribers, this, propOrId);
 
-      [...this._subscribers[propOrId as string] || []].forEach(sub => this._runNotification(sub, this._get(propOrId), propOrId));
-      [...this._thisSubscribers].forEach(sub => this._runNotification(sub, this, propOrId));
-      if (this._parentListener) this._runNotification(this._parentListener);
+      // [...this._subscribers[propOrId as string] || []].forEach(sub => this._runNotification(sub, this._get(propOrId), propOrId));
+      // [...this._thisSubscribers].forEach(sub => this._runNotification(sub, this, propOrId));
+      this._runNotification(this); // runs this.parentListener. 
 
     }
     _notifyThisSubscribers() {
-      [...this._thisSubscribers].forEach(sub => this._runNotification(sub, this, null as any));
-      if (this._parentListener) this._runNotification(this._parentListener);
+      // [...this._thisSubscribers].forEach(sub => this._runNotification(sub, this, null as any));
+      this._runNotification(this._thisSubscribers, this, null as any);
+      this._runNotification(this); // runs this.parentListener. 
     }
 
+    _parentDispose = null as null | (() => void);
+    _children: StateBaseClass[] = [];
     _registerChild<P extends ThisKeys>(propOrId: P, child: ThisKeyAccessType<P>) {
+      // console.log("1- push child for ");
+
       if ((child as any)._isStateBase) {
         let childBase = child as StateBaseClass;
         // when a child prop change.
         // we notify childs subscriber and the parent.
-        childBase._parent = this;
+        childBase._parent = this._proxifiedThis || this;
         childBase._parentListener = () => {
           this._notifySubscribers(propOrId, child);
         };
+
+        childBase._parentDispose?.();
+
+        // Propagate the __removed__ flag to children.
+        const disposeOnRemove = this._onRemove(() => {
+          (childBase as any).__removed__ = true;
+          [...childBase._removeListeners].forEach((f: any) => f(childBase));
+        })
+        // Add the child the the children array.
+        this._children.push(child as StateBaseClass);
+        // console.log("push child for ", propOrId);
+        childBase._parentDispose = () => {
+          _.remove(this._children, c => c === child);
+          disposeOnRemove();
+        }
+
+      }
+    }
+
+    _traverse(fun: (node: StateBaseClass) => void): void {
+      for (let child of this._children) {
+        // if (k !== "_parent" && this[k] && (this[k] as any)._isStateBase && !(this[k] as any)._isStateReference)
+        // {
+        //   fun(this[k] as any);
+        //   (this[k] as any as StateBaseClass)._traverse(fun);
+        // }
+        fun(child as any);
+        (child as any as StateBaseClass)._traverse(fun);
+        // }
       }
     }
 
@@ -193,6 +284,8 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
 
 export interface StateBaseInterface<T> {
   _isStateBase: boolean;
+
+  __removed__: boolean;
 
   _parent: any | null;
   // _props: StatePropIdentifiers<T> = null as any;
@@ -206,7 +299,13 @@ export interface StateBaseInterface<T> {
 
   _onChange(listener: ((value: this, key: Keys<T>) => void)): (() => void);
 
-  _path() : string;
+  _removeListeners: ((o: T) => void)[];
+  _onRemove(listener: (o: T) => void): () => void;
+  _onRemoveInternal(listener: (o: T) => void): () => void;
+
+  _onBeforeRemove(listener: (o: T) => void): () => void;
+
+  _path(): string;
   _setProps(props: PropSpec): void;
   _getRootState(): { _history: NoboHistory; };
 
@@ -236,6 +335,8 @@ export interface StateBaseInterface<T> {
   // notify subscribers and the parent.
   _notifySubscribers<P extends Keys<T>>(propOrId: P, value: KeyAccessType<T, P>): void;
 
+  _children: StateBaseInterface<any>[];
   _registerChild<P extends Keys<T>>(propOrId: P, child: KeyAccessType<T, P>): void;
 
+  _traverse(fun: (node: StateBaseInterface<any>) => void): void;
 }

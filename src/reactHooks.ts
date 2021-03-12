@@ -43,14 +43,14 @@ export function useNoboStateImpl(state: any, prop?: any) {
   const mounted = useMounted();
 
   useEffect(() => {
-    let listener = _.throttle(() => {
+    let listener = () => {
       if (mounted.current)
       {
         refresh();
         // setValue must be called after refresh otherwise it misses refreshes in react-tree-fiber
         setValue(getValue());
       }
-    }, 16);
+    };
 
     if (prop === "__ref__")
       return state._subscribeRef(listener);
@@ -270,15 +270,21 @@ export function useNoboObserver<R>(f : () => R) {
   return state;
 }
 
-export function observer<P>(component : React.FunctionComponent<P>) :  React.FunctionComponent<P> {
-
+export function observer<P>(component : React.FunctionComponent<P>, name ? : string) :  React.FunctionComponent<P> {
+  let firstCall = true;
   return (props: P) => {
 
     const refresh = useRefreshThisComponent();
-    const reaction = useMemo(() => new Reaction(refresh), []);
+    const reaction = useMemo(() => new Reaction(() => {
+      // console.log("Observer::refresh ", name);
+      refresh(); 
+    }), []);
 
     useEffect(() => () => reaction.dispose(), []);
 
-    return reaction.track(() => component(props)) || null;
+    // console.log("Observer::render ", name, firstCall);
+
+    firstCall = false;
+    return reaction.track(() => component(props), name) || null;
   }
 }

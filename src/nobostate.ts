@@ -1,7 +1,7 @@
 import { createPropIds, PropSpec, ReferenceSpec, StatePropIdentifiers, TablePropSpec } from "./prop";
 import { makeRootState, RootState } from "./RootState";
 import { StateArray, StateObjectArray } from "./StateArray";
-import { createStateObjectProxy, StateObject, stateObjectMixin } from "./StateObject";
+import { StateObject, stateObjectMixin } from "./StateObject";
 import { HasId, StateTable, stateTableMixin } from "./StateTable";
 
 
@@ -19,7 +19,7 @@ import { HasId, StateTable, stateTableMixin } from "./StateTable";
 
 
 export const stateObject = <T>(data: T) =>
-  createStateObjectProxy(new (stateObjectMixin<T>())(data)) as any as StateObject<T>;
+  new (stateObjectMixin<T>())(data) as any as StateObject<T>;
 
 export const stateArray = <T>() => new StateArray<T>();
 export const stateObjectArray = <T>() => new StateObjectArray<T>() as StateObjectArray<T>;

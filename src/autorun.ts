@@ -1,4 +1,6 @@
+import _ from "lodash";
 import { StateBaseInterface } from "./StateBase";
+import { StateTable } from "./StateTable";
 
 
 type AutorunFunction = (() => void) | (() => () => void);
@@ -12,6 +14,10 @@ let autorunTracking = true;
 
 export function autorunIgnore<R>(f: () => R) {
   if (!currentAutorunContext) return f();
+
+  if (autorunTracking === false) {
+    return f();
+  }
 
   autorunTracking = false;
 
@@ -32,7 +38,6 @@ class AccessInfoMap<V> {
   has(info: AccessInfo) {
     return this.map.get(info.state)?.has(info.key) || false;
   }
-
   clear() { return this.map.clear(); }
   get(info: AccessInfo) {
     return this.map.get(info.state)?.get(info.key);
@@ -70,24 +75,33 @@ interface AutorunContext {
 
 export let currentAutorunContext: AutorunContext | null = null;
 
-export function autorun(f: AutorunFunction): () => void {
+type AutorunParams = { track: AutorunFunction, react: () => void }
+export function autorun(f: AutorunParams, name?: string) : () => void;
+export function autorun(trackAndReact: AutorunFunction, name?: string) : () => void;
+export function autorun(f: AutorunFunction | AutorunParams,
+  name?: string): () => void {
 
-  const reaction = new Reaction(() => {});
+  const params = f as AutorunParams;
+  const trackAndReact = f as AutorunFunction;
+  const isParams = params.track !== undefined
+  const reaction = new Reaction(() => { });
 
-  const run = () => reaction.track(f);
-  reaction.reactionCallback = run;
+  const track = () => reaction.track(isParams ? params.track : trackAndReact, name);
+  reaction.reactionCallback = isParams ? params.react : track;
 
-  run();
+  track();
   return () => reaction.dispose();
 }
+
+const reactionStack = [] as AutorunContext[];
 
 export class Reaction {
 
   ctx: AutorunContext;
+  disposed = false;
+  reactionCallback: () => void;
 
-  reactionCallback : () => void;
-
-  constructor(reactionCallback : () => void) {
+  constructor(reactionCallback: () => void) {
     this.reactionCallback = reactionCallback;
     this.ctx = {
       accesses: new AccessInfoMap<boolean>(),
@@ -95,54 +109,116 @@ export class Reaction {
     };
   }
 
-  dispose() {
-    this.ctx.disposers.forall(f => f[1]());
+  printDependencies() {
+    this.ctx.disposers.forall(([{ state, key },]) => {
+      console.log(`${state._path()}${key ? "/" + key : ""}`);
+    })
   }
 
-  track<R>(trackedFunction: () => R) {
-    if (currentAutorunContext) {
-      // console.warn("Nested runs of autorun are forbidden.");
-      return;
+  dispose() {
+    this.disposed = true;
+    // console.log("dispose REACTION.", this.name)
+    this.ctx.disposers.forall(f => {
+      // console.log("   dispose ", f[0].key);
+      f[1]();
+    });
+    this.ctx.disposers.clear();
+  }
+
+  name = "";
+  track<R>(trackedFunction: () => R, name?: string) {
+    this.name = name || "";
+    if (this.disposed) {
+      throw new Error(`Reaction is already disposed: ${name} `);
     }
 
+    // if (this.disposed) {
+    //   console.warn("Reaction is already disposed: ", name);
+    // }
+
+    if (currentAutorunContext === this.ctx) {
+      console.trace("Recursive reaction", name);
+      return;
+    }
+    reactionStack.push(this.ctx);
     // retrieve the context.
     currentAutorunContext = this.ctx;
 
     // console.log("START AUTORUN.");
     // run the autorun function
-    const res = trackedFunction();
-    // console.log("AUTORUN END.");
+    try {
+      return trackedFunction();
+    }
+    finally {
 
-    // currentAutorunContext.accesses.forall(pair => {
-    // console.log("  got access to ", pair[0].key);
-    // })
-    // dispose to outdated subscribers.
-    this.ctx.disposers.forall(acc => {
-      if (!this.ctx.accesses.has(acc[0])) {
-        // console.log(`unsubscribe to ${acc[0].key}`);
-       this.ctx.disposers.get(acc[0])?.();
-       this.ctx.disposers.delete(acc[0]);
-      }
-    });
-    // subsribe to new dependencies.
-   this.ctx.accesses.forall(acc => {
-      if (!currentAutorunContext?.disposers.has(acc[0])) {
-        // console.log(`subscribe to ${acc[0].key}`);
-        const { state, key } = acc[0];
-        if (key === null || (Array.isArray(state) && key === "length"))
-         this.ctx.disposers.set({ state, key: null }, state._subscribe(this.reactionCallback));
-        else
-         this.ctx.disposers.set(acc[0], state._subscribeKey(key, this.reactionCallback));
-      }
-    });
+      // console.log("AUTORUN END.");
 
-    // save previousAccesses.
-   this.ctx.accesses.clear();
+      // currentAutorunContext.accesses.forall(pair => {
+      // console.log("  got access to ", pair[0].key);
+      // })
+      // dispose to outdated subscribers.
+      this.ctx.disposers.forall(acc => {
+        if (!this.ctx.accesses.has(acc[0])) {
+          // console.log(`unsubscribe to ${acc[0].key}`);
+          this.ctx.disposers.get(acc[0])?.();
+          this.ctx.disposers.delete(acc[0]);
+        }
+      });
+      // subsribe to new dependencies.
+      this.ctx.accesses.forall(acc => {
+        if (!this.ctx.disposers.has(acc[0])) {
+          // console.log(`subscribe to ${acc[0].key}`);
+          const { state, key } = acc[0];
 
-    // clear current context.
-    currentAutorunContext = null;
+          // const onRemoveDisposer = state._onBeforeRemove(() => {
+          //   // console.log('onRemoveDisposer ', name);
+          //   this.dispose();
 
-    return res;
+          // });
+          const info =
+            key === null || (Array.isArray(state) && key === "length") ?
+              {
+                access: { state, key: null }, dispose: state._subscribe(() => {
+                  if (!this.disposed && currentAutorunContext !== this.ctx) {
+                    // console.log("REACTION ", name);
+                    // this.printDependencies();
+                    this.reactionCallback();
+                  }
+                })
+              }
+              :
+              {
+                access: acc[0], dispose: state._subscribeKey(key, () => {
+                  if (!this.disposed && currentAutorunContext !== this.ctx) {
+                    // console.log("REACTION ", name);
+                    // this.printDependencies();
+                    this.reactionCallback();
+                  }
+                })
+              }
+
+          const disposeOnRemoveAndSubscribe = () => {
+            // onRemoveDisposer();
+            info.dispose();
+          }
+          this.ctx.disposers.set(info.access, disposeOnRemoveAndSubscribe);
+          // if (key === null || (Array.isArray(state) && key === "length"))
+          // {
+
+          //   this.ctx.disposers.set({ state, key: null }, state._subscribe(this.reactionCallback));
+          // }
+          // else
+          //  this.ctx.disposers.set(acc[0], state._subscribeKey(key, this.reactionCallback));
+        }
+      });
+
+      // save previousAccesses.
+      this.ctx.accesses.clear();
+
+      // pop current stack.
+      reactionStack.pop();
+      currentAutorunContext = _.last(reactionStack) || null;
+    }
 
   }
 

@@ -20,7 +20,7 @@ export class StateReferenceArray<T extends HasId<any>>
   constructor(array?: (IdType<T> | T)[]) {
     super();
     this._toInitialize = array || [];
-    return new Proxy(this, {
+    return this._proxifiedThis = new Proxy(this, {
       get: (target, prop, receiver) => {
         let res = Reflect.get(target, prop);
 
@@ -66,13 +66,13 @@ export class StateReferenceArray<T extends HasId<any>>
     this._notifyThisSubscribers();
   }
 
-  [index: number] : StateObject<T>; // index access redirected to this.get 
+  [index: number]: StateObject<T>; // index access redirected to this.get 
 
-  get(i : number) { 
+  get(i: number) {
     currentAutorunContext?.accesses.set({ state: this as any, key: i as any }, true);
-    return this._wrapped[i]; 
+    return this._wrapped[i];
   }
-  
+
   [Symbol.iterator]() {
     currentAutorunContext?.accesses.set({ state: this as any, key: null }, true);
     return this._wrapped[Symbol.iterator]();
@@ -85,11 +85,11 @@ export class StateReferenceArray<T extends HasId<any>>
     currentAutorunContext?.accesses.set({ state: this as any, key: null }, true);
     return this._wrapped.map(f);
   }
-  findIndex(f: (elt: StateObject<T>) => boolean) : number {
+  findIndex(f: (elt: StateObject<T>) => boolean): number {
     currentAutorunContext?.accesses.set({ state: this as any, key: null }, true);
     return this._wrapped.findIndex(f);
   }
-  
+
   _specs(): ReferenceSpec<any, any> {
     let specs = this._props as any as ReferenceSpec<any, any>;
     if (!specs) throw new Error();
@@ -112,7 +112,7 @@ export class StateReferenceArray<T extends HasId<any>>
     super._setProps(props);
 
 
-    this._parent._onDeleteInternal(() => {
+    this._parent._onRemoveInternal(() => {
 
       if (this._specs()._own) {
         // console.log(this);
@@ -172,7 +172,7 @@ export class StateReferenceArray<T extends HasId<any>>
     // refDisposer.push(ref._onChange(() => this._notifyThisSubscribers()));
 
     // Setup on ref delete behaviors.
-    refDisposer.push(ref._onDeleteInternal(() => {
+    refDisposer.push(ref._onRemoveInternal(() => {
       let spec = this._specs();
       this.remove(r => r === ref);
 

@@ -1,9 +1,8 @@
-import { StateReference, StateReferenceNotNull } from "./StateReference";
 import { createState, stateTable } from "./nobostate";
-import { StateReferenceArray, stateReferenceArray } from "./StateReferenceArray";
-import { newIntId, newStringId } from "./StateTable";
-import { stateReferenceNotNull } from "./StateReference";
 import { StateObject } from "./StateObject";
+import { StateReferenceNotNull, stateReferenceNotNull } from "./StateReference";
+import { StateReferenceArray, stateReferenceArray } from "./StateReferenceArray";
+import { newStringId } from "./StateTable";
 
 type Test = { id: string, text: string };
 

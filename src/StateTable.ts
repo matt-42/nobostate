@@ -1,4 +1,5 @@
 import _ from "lodash";
+import { autorun, autorunIgnore, currentAutorunContext } from "./autorun";
 import { HistoryTableAction } from "./history";
 import { propagatePropIds } from "./prop";
 import { StateBaseInterface, stateBaseMixin } from "./StateBase";
@@ -45,9 +46,18 @@ export function stateTableMixin<T extends HasId<any>>() {
       return () => disposers.forEach(f => f());
     }
 
-    map<R>(f: (o: StateObject<T>) => R) { return [...this.values()].map(f); }
-    flatMap<R>(f: (o: StateObject<T>) => R[]) { return [...this.values()].flatMap(f); }
-    find(predicate: (o: StateObject<T>) => boolean) { return [...this.values()].find(predicate); }
+    map<R>(f: (o: StateObject<T>) => R) {
+      currentAutorunContext?.accesses.set({ state: this as any, key: null }, true);
+      return [...this.values()].map(f);
+    }
+    flatMap<R>(f: (o: StateObject<T>) => R[]) {
+      currentAutorunContext?.accesses.set({ state: this as any, key: null }, true);
+      return [...this.values()].flatMap(f);
+    }
+    find(predicate: (o: StateObject<T>) => boolean) {
+      currentAutorunContext?.accesses.set({ state: this as any, key: null }, true);
+      return [...this.values()].find(predicate);
+    }
 
     // _removeListeners = new Map<Id, (o : O) => void>();
     // onRemove(id: Id, listener: (o : O) => void) {
@@ -58,7 +68,7 @@ export function stateTableMixin<T extends HasId<any>>() {
     onInsert(listener: (o: StateObject<T>) => void): () => void {
       // Fixme remove onInsertInternal, seems like it's useless.
       // const ignoredListener = listener;//(o: StateObject<T>) => this._getRootState()._history.ignore(() => listener(o));
-      
+
       const ignoredListener = (o: StateObject<T>) => { if (!(o as any).__removed__) listener(o); };
 
       this._insertListeners.push(ignoredListener);
@@ -76,13 +86,14 @@ export function stateTableMixin<T extends HasId<any>>() {
       const onRemoveDisposers = [] as (() => void)[];
       const attachToObject = (object: StateObject<T>) => {
         let onRemove = fun(object);
-        if (onRemove)
-        {
+        if (onRemove) {
           // on detach, unsubscribe to onDelete and call the onRemove callback.
-          onRemoveDisposers.push(object._onDelete(() => { if (!disposed && onRemove) { 
-            onRemove(); 
-            _.remove(onRemoveDisposers, f => f === onRemove);
-          }}));
+          onRemoveDisposers.push(object._onRemove(() => {
+            if (!disposed && onRemove) {
+              onRemove();
+              _.remove(onRemoveDisposers, f => f === onRemove);
+            }
+          }));
           onRemoveDisposers.push(onRemove);
         }
       }
@@ -97,77 +108,84 @@ export function stateTableMixin<T extends HasId<any>>() {
 
     insert(value: T | StateObject<T>): StateObject<T> {
 
+      const run = this._getRootState()?._transaction || (<R>(x: () => R) => { return x(); });
+      const run2 = (<R>(x: () => R) => { return autorunIgnore(() => run(x)) })
+      return run2(() => {
 
-      let insert_code = () => {
-        // Compute new id if needed.
-        if ((value.id as any as NewIntId)._isNewIntId === true) {
-          let id = (this._lastInsertId || 0) + 1;
-          while (this.has(id)) id++;
-          value = { ...value, id };
+
+        let insert_code = () => {
+          // Compute new id if needed.
+          if ((value.id as any as NewIntId)._isNewIntId === true) {
+            let id = (this._lastInsertId || 0) + 1;
+            while (this.has(id)) id++;
+            value = { ...value, id };
+          }
+          if ((value.id as any as NewStringId)._isNewStringId === true) {
+            let id = parseInt(this._lastInsertId || "0") + 1;
+            while (this.has(id.toString())) id++;
+            value = { ...value, id: id.toString() };
+          }
+
+          // check if id already exists.
+          if (this.has(value.id))
+            throw new Error(`table ${this._path()} with id ${value.id} already exists`);
+
+          // Insert a new placeholder stateObject in the map.
+          // if value is already a state object, insert it directly.
+          let valueIsAlreadyAStateObject = (value as StateObject<T>)._isStateObject;
+          let elt = (valueIsAlreadyAStateObject ? value : anyStateObject() as any) as StateObject<T>;
+          super.set(value.id, elt);
+
+          // console.log(`${this._props?._path.join('/')}: insert id`, value.id);
+
+          // Update the placeholder with the new element attributes.
+          // updateState(this, value.id, value);
+          if (!valueIsAlreadyAStateObject)
+            autorunIgnore(() => elt._update(value));
+
+          let id = elt.id;
+          this._registerChild(id, elt);
+          propagatePropIds(elt, this._props);
+
+          this._lastInsertId = id;
+          this._notifySubscribers(id, elt);
+          // console.log(this._getRootState());
+          // console.log(this._getRootState()._history);
+          if (this._insertListeners.length) {
+            this._logger()?.groupLog(`Calling onInsert listeners for ${this._path()}`);
+            // [...this._insertListeners].forEach(f => this._runNotification(f, elt));
+            this._runNotification(this._insertListeners, elt);
+            this._logger()?.groupEnd();
+          }
+
+          const history = this._getRootState()._history;
+          if (history && this._props)
+            history.push({
+              action: "insert",
+              propId: this._props,
+              target: this as any,
+              element: elt
+            } as HistoryTableAction);
+
+
+          return elt;
+
         }
-        if ((value.id as any as NewStringId)._isNewStringId === true) {
-          let id = parseInt(this._lastInsertId || "0") + 1;
-          while (this.has(id.toString())) id++;
-          value = { ...value, id: id.toString() };
-        }
-
-        // check if id already exists.
-        if (this.has(value.id))
-          throw new Error(`table ${this._path()} with id ${value.id} already exists`);
-
-        // Insert a new placeholder stateObject in the map.
-        // if value is already a state object, insert it directly.
-        let valueIsAlreadyAStateObject = (value as StateObject<T>)._isStateObject;
-        let elt = (valueIsAlreadyAStateObject ? value : anyStateObject() as any) as StateObject<T>;
-        super.set(value.id, elt);
-
-        // console.log(`${this._props?._path.join('/')}: insert id`, value.id);
-
-        // Update the placeholder with the new element attributes.
-        // updateState(this, value.id, value);
-        if (!valueIsAlreadyAStateObject)
-          elt._update(value);
-
-        let id = elt.id;
-        this._registerChild(id, elt);
-        propagatePropIds(elt, this._props);
-
-        this._lastInsertId = id;
-        this._notifySubscribers(id, elt);
-        // console.log(this._getRootState());
-        // console.log(this._getRootState()._history);
-        if (this._insertListeners.length) {
-          this._logger()?.groupLog(`Calling onInsert listeners for ${this._path()}`);
-          [...this._insertListeners].forEach(f => this._runNotification(f, elt));
-          this._logger()?.groupEnd();
-        }
-
-        const history = this._getRootState()._history;
-        if (history && this._props)
-          history.push({
-            action: "insert",
-            propId: this._props,
-            target: this as any,
-            element: elt
-          } as HistoryTableAction);
 
 
-        return elt;
+        this._logger()?.groupLog(`Insert in table ${this._path()} element: `);
+        // if ((value as StateObject<T>)._isStateObject)
+        //   this._logger()?.log(`stateObject with id ${value.id}`);
+        this._logger()?.log(value);
 
-      }
+        let res = this._getRootState()._history ?
+          this._getRootState()._history.group(insert_code) :
+          insert_code();
 
+        this._logger()?.groupEnd();
+        return res;
+      });
 
-      this._logger()?.groupLog(`Insert in table ${this._path()} element: `);
-      // if ((value as StateObject<T>)._isStateObject)
-      //   this._logger()?.log(`stateObject with id ${value.id}`);
-      this._logger()?.log(value);
-
-      let res = this._getRootState()._history ?
-        this._getRootState()._history.group(insert_code) :
-        insert_code();
-
-      this._logger()?.groupEnd();
-      return res;
     }
 
     clone(id: Id, newId_?: Id) {
@@ -219,75 +237,94 @@ export function stateTableMixin<T extends HasId<any>>() {
       return this;
     }
 
+    clear() {
+      while (this.size)
+        for (let id of this.keys()) {
+          if (this.has(id))
+            this.remove(id);
+        }
+    }
     remove(id: Id) {
-      // console.trace();
-      let root = this._getRootState();
-      let eltToDelete = this.get(id);
-      if (!eltToDelete) return;
+      autorunIgnore(() => {
 
-      // Avoid infinit loop when own == true and onRefDeleted == cascade.
-      if (eltToDelete.__beingRemoved__) return;
-      eltToDelete.__beingRemoved__ = true;
-      // console.log("remove ", `remove-${this._path()}-${id}`, this.has(id), this.get(id)?.__beingRemoved__);
+        // console.trace();
+        let root = this._getRootState();
+        let eltToDelete = this.get(id);
+        if (!eltToDelete) return;
 
-      this._logger()?.groupLog(`Remove ${eltToDelete._path()}`);
+        // Avoid infinit loop when own == true and onRefDeleted == cascade.
+        if (eltToDelete.__beingRemoved__) return;
+        eltToDelete.__beingRemoved__ = true;
+        // console.log("remove ", `remove-${this._path()}-${id}`, this.has(id), this.get(id)?.__beingRemoved__);
 
-      // console.trace();
-      // Use a transaction so that no listeners is called in the middle of the removal.
-      root._transaction(() => {
+        this._logger()?.groupLog(`Remove ${eltToDelete._path()}`);
 
-        // Group all actions related to 1 remove.
-        root._history.group(() => {
+        if (eltToDelete._beforeRemoveListeners.length) {
+          this._logger()?.groupLog(`Calling onRemove listeners of ${eltToDelete._path()}`);
+          [...eltToDelete._beforeRemoveListeners].forEach((f: any) => f(eltToDelete));
+          eltToDelete._beforeRemoveListeners.length = 0;
+          this._logger()?.groupEnd();
+        }
 
-          // this._insertListeners.forEach(f => f(eltToDelete._wrapped));
+        // console.trace();
+        // Use a transaction so that no listeners is called in the middle of the removal.
+        root._transaction(() => {
 
-          // call the on delete listeners.
-          // clone the array because listeners can remove themselves from the array, breaking foreach.
+          // Group all actions related to 1 remove.
+          root._history.group(() => {
 
-          // [...eltToDelete._removeListeners].forEach((f: any) => this._runNotification(f, eltToDelete));
+            // this._insertListeners.forEach(f => f(eltToDelete._wrapped));
 
-          if (eltToDelete._removeListeners.length) {
-            this._logger()?.groupLog(`Calling onDelete listeners of ${eltToDelete._path()}`);
-            [...eltToDelete._removeListeners].forEach((f: any) => f(eltToDelete));
-            eltToDelete._removeListeners.length = 0;
-            this._logger()?.groupEnd();
-          }
+            // call the on delete listeners.
+            // clone the array because listeners can remove themselves from the array, breaking foreach.
+
+            // [...eltToDelete._removeListeners].forEach((f: any) => this._runNotification(f, eltToDelete));
+
+            if (eltToDelete._removeListeners.length) {
+              this._logger()?.groupLog(`Calling onRemove listeners of ${eltToDelete._path()}`);
+              [...eltToDelete._removeListeners].forEach((f: any) => f(eltToDelete));
+              eltToDelete._removeListeners.length = 0;
+              this._logger()?.groupEnd();
+            }
 
 
-          // Then we remove the element from the table.
-          // Note: we must do it after removelisteners because they may need to retreive info
-          // about the element being removed.
-          if (!this.delete(id))
-            throw new Error();
-          this._logger()?.log(`Deleted ${eltToDelete._path()}`);
+            // Then we remove the element from the table.
+            // Note: we must do it after removelisteners because they may need to retreive info
+            // about the element being removed.
+            if (!this.delete(id))
+              throw new Error();
+            this._logger()?.log(`Deleted ${eltToDelete._path()}`);
 
-          this._keyDeleteListeners.forEach(f => f());
-          [...this._thisSubscribers].forEach(f => this._runNotification(f, this, id));
-          if (this._parentListener)
-            this._runNotification(this._parentListener);
+            this._keyDeleteListeners.forEach(f => f());
+            // [...this._thisSubscribers].forEach(f => this._runNotification(f, this, id));
+            this._runNotification(this._thisSubscribers, this, id);
+            // if (this._parentListener)
+            //   this._runNotification(this._parentListener);
+            this._runNotification(this);
+            // Record the remove in the history.
+            this._getRootState()._history.push({
+              action: "remove",
+              propId: this._props,
+              target: this as any,
+              element: eltToDelete
+            } as HistoryTableAction);
 
-          // Record the remove in the history.
-          this._getRootState()._history.push({
-            action: "remove",
-            propId: this._props,
-            target: this as any,
-            element: eltToDelete
-          } as HistoryTableAction);
-
-          // this._getRootState()._history.push({
-          //   action: "anyAction",
-          //   propId: this._props,
-          //   target: this as any,
-          //   undo: () => this.set(id, eltToDelete),
-          //   redo: () => this.delete(id),   
-          // } as HistoryTableAction);
+            // this._getRootState()._history.push({
+            //   action: "anyAction",
+            //   propId: this._props,
+            //   target: this as any,
+            //   undo: () => this.set(id, eltToDelete),
+            //   redo: () => this.delete(id),   
+            // } as HistoryTableAction);
+          });
         });
-      });
-      // console.log("remove done ", `remove-${this._path()}-${id}`);
-      this._logger()?.groupEnd();
+        // console.log("remove done ", `remove-${this._path()}-${id}`);
+        this._logger()?.groupEnd();
 
-      eltToDelete.__beingRemoved__ = undefined;
-      eltToDelete.__removed__ = true;
+        eltToDelete.__beingRemoved__ = undefined;
+        eltToDelete.__removed__ = true;
+      });
+
     }
 
   }
