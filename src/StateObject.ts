@@ -79,7 +79,7 @@ function createStateObjectProxy<T extends Object>(wrapped: T) {
       else {
         if (typeof prop == "string" &&  !(prop as string).startsWith("_") && !res?._isStateBase)
         {
-          // console.log("key acccess: ", prop);
+          //   console.log("key acccess: ", prop);
           currentAutorunContext?.accesses.set({state: target as any, key: prop as string}, true);
         }
         if (res?._isStateReference) {

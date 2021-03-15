@@ -8,9 +8,7 @@ import { RootState } from "./RootState";
 export function callListeners(
   listeners: StateBaseInterface<any> | ((...args: any[]) => void)[],
   ...args: any[]) {
-
-  return autorunIgnore(() => {
-
+    
     if (!Array.isArray(listeners)) {
       listeners._parentListener?.();
       return;
@@ -27,7 +25,6 @@ export function callListeners(
       });
       // console.log("CALL LISTENERS END");
     }
-  });
 }
 
 export type ObjectPropsKeys<T> = {

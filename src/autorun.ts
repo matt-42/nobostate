@@ -1,6 +1,5 @@
 import _ from "lodash";
 import { StateBaseInterface } from "./StateBase";
-import { StateTable } from "./StateTable";
 
 
 type AutorunFunction = (() => void) | (() => () => void);
@@ -10,30 +9,39 @@ type AccessInfo = {
   key: string | null
 }
 
-let autorunTracking = true;
-
 export function autorunIgnore<R>(f: () => R) {
   if (!currentAutorunContext) return f();
 
-  if (autorunTracking === false) {
+  const ctx = currentAutorunContext;
+  if (ctx.ignoreAccesses === true) {
     return f();
   }
 
-  autorunTracking = false;
+  ctx.ignoreAccesses = true;
 
-  // console.log(">>>> autorunIgnore start");
+  // console.group(">>>> autorunIgnore start");
   try {
     var res = f();
   }
   finally {
-    autorunTracking = true;
+    if (ctx !== currentAutorunContext) throw new Error(
+      "Got a different autorun context after running the autorun ignore function."
+    );
+    ctx.ignoreAccesses = false;
   }
   // console.log("<<<< autorunIgnore end");
+  // console.groupEnd();
   return res;
 }
 
 class AccessInfoMap<V> {
   map = new Map<StateBaseInterface<any>, Map<string | null, V>>();
+
+  get size() {
+    let s = 0;
+    this.map.forEach(m => { s += m.size; });
+    return s;
+  }
 
   has(info: AccessInfo) {
     return this.map.get(info.state)?.has(info.key) || false;
@@ -43,7 +51,7 @@ class AccessInfoMap<V> {
     return this.map.get(info.state)?.get(info.key);
   }
   set(info: AccessInfo, val: V) {
-    if (!autorunTracking) {
+    if (currentAutorunContext?.ignoreAccesses) {
       // console.log("autorun ignore ", info.key);
       return;
     }
@@ -71,13 +79,14 @@ class AccessInfoMap<V> {
 interface AutorunContext {
   accesses: AccessInfoMap<boolean>
   disposers: AccessInfoMap<() => void>
+  ignoreAccesses : boolean
 }
 
 export let currentAutorunContext: AutorunContext | null = null;
 
 type AutorunParams = { track: AutorunFunction, react: () => void }
-export function autorun(f: AutorunParams, name?: string) : () => void;
-export function autorun(trackAndReact: AutorunFunction, name?: string) : () => void;
+export function autorun(f: AutorunParams, name?: string): () => void;
+export function autorun(trackAndReact: AutorunFunction, name?: string): () => void;
 export function autorun(f: AutorunFunction | AutorunParams,
   name?: string): () => void {
 
@@ -105,7 +114,8 @@ export class Reaction {
     this.reactionCallback = reactionCallback;
     this.ctx = {
       accesses: new AccessInfoMap<boolean>(),
-      disposers: new AccessInfoMap<() => void>()
+      disposers: new AccessInfoMap<() => void>(),
+      ignoreAccesses: false
     };
   }
 
@@ -144,14 +154,19 @@ export class Reaction {
     // retrieve the context.
     currentAutorunContext = this.ctx;
 
-    // console.log("START AUTORUN.");
+    // console.group("START AUTORUN", name);
+
+    // if (name === "robot TCP") {
+    //   console.log("Dependencies of ", name);
+    //   this.printDependencies();
+    // }
+
     // run the autorun function
     try {
       return trackedFunction();
     }
     finally {
 
-      // console.log("AUTORUN END.");
 
       // currentAutorunContext.accesses.forall(pair => {
       // console.log("  got access to ", pair[0].key);
@@ -181,7 +196,8 @@ export class Reaction {
                 access: { state, key: null }, dispose: state._subscribe(() => {
                   if (!this.disposed && currentAutorunContext !== this.ctx) {
                     // console.log("REACTION ", name);
-                    // this.printDependencies();
+                    // if (name === "robot TCP")
+                    //   this.printDependencies();
                     this.reactionCallback();
                   }
                 })
@@ -189,9 +205,12 @@ export class Reaction {
               :
               {
                 access: acc[0], dispose: state._subscribeKey(key, () => {
+                  // if (name === "robot TCP")
+                  //   console.log("REACTION ", name, key);
                   if (!this.disposed && currentAutorunContext !== this.ctx) {
                     // console.log("REACTION ", name);
-                    // this.printDependencies();
+                    // if (name === "robot TCP")
+                    //   this.printDependencies();
                     this.reactionCallback();
                   }
                 })
@@ -212,12 +231,23 @@ export class Reaction {
         }
       });
 
+      // if (name === "robot TCP") {
+      //   console.warn("AFTER autorun of ", name, this.ctx.disposers.size,
+      //     "disposers and ", this.ctx.accesses.size, "accesses");
+      //   console.warn("AFTER Dependencies of ", name, this.ctx.disposers.size);
+      //   this.printDependencies();
+      // }
+
       // save previousAccesses.
       this.ctx.accesses.clear();
+
+
 
       // pop current stack.
       reactionStack.pop();
       currentAutorunContext = _.last(reactionStack) || null;
+      console.groupEnd();
+
     }
 
   }
