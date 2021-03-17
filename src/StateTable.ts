@@ -58,7 +58,10 @@ export function stateTableMixin<T extends HasId<any>>() {
       currentAutorunContext?.accesses.set({ state: this as any, key: null }, true);
       return [...this.values()].find(predicate);
     }
-
+    values() {
+      currentAutorunContext?.accesses.set({ state: this as any, key: null }, true);
+      return super.values();
+    }
     // _removeListeners = new Map<Id, (o : O) => void>();
     // onRemove(id: Id, listener: (o : O) => void) {
     //   this.assertGet(id)._removeListeners.push(listener);
