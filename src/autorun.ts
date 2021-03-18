@@ -174,7 +174,7 @@ export class Reaction {
       // dispose to outdated subscribers.
       this.ctx.disposers.forall(acc => {
         if (!this.ctx.accesses.has(acc[0])) {
-          // console.log(`unsubscribe to ${acc[0].key}`);
+          // console.log(`unsubscribe to ${acc[0].state._path()}/${acc[0].key}`);
           this.ctx.disposers.get(acc[0])?.();
           this.ctx.disposers.delete(acc[0]);
         }
@@ -182,7 +182,7 @@ export class Reaction {
       // subsribe to new dependencies.
       this.ctx.accesses.forall(acc => {
         if (!this.ctx.disposers.has(acc[0])) {
-          // console.log(`subscribe to ${acc[0].key}`);
+          // console.log(`subscribe to ${acc[0].state._path()}/${acc[0].key}`);
           const { state, key } = acc[0];
 
           // const onRemoveDisposer = state._onBeforeRemove(() => {
