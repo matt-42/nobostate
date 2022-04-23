@@ -1,4 +1,4 @@
-import { createState, stateTable } from "./nobostate";
+import { createState, stateArray, stateTable } from "./nobostate";
 import { stateReference, StateReference, StateReferenceNotNull, stateReferenceNotNull } from "./StateReference";
 import { StateReferenceArray } from "./StateReferenceArray";
 import { unwrapState } from "./unwrap_revive";
@@ -119,5 +119,25 @@ test('revive-notnull-reference-array', () => {
   state2._load(unwrapState(state));
   expect(state2.table2.assertGet(1).ref._isStateReferenceNotNull).toBe(true);
   expect((state2.table2.assertGet(1).ref2 as any)._isStateReferenceNotNull).toBe(undefined);
+
+});
+test('revive-array', () => {
+  const newState = () => createState({
+    arr1: stateArray<number>(),
+  });
+
+  const state = newState();
+  state._load({
+    _stateObject: {
+
+      arr1: { _stateArray: [0, 1, 2, 3] }
+    }
+  });
+
+  expect(state.arr1.length).toBe(4);
+  expect(state.arr1[0]).toBe(0);
+  expect(state.arr1[1]).toBe(1);
+  expect(state.arr1[2]).toBe(2);
+  expect(state.arr1[3]).toBe(3);
 
 });

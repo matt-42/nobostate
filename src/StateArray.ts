@@ -189,7 +189,7 @@ export class StateArray<T> extends stateBaseMixin<{}, typeof Object>(Object)
     elements.forEach(elt => {
       this._wrapped.push(elt);
       this._notifySubscribers(this.length - 1 as never, elt as never);
-      this._getRootState()._history.push({
+      this._getRootState()?._history?.push({
         action: "push",
         propId: this._props,
         target: this as any,
@@ -204,8 +204,12 @@ export class StateArray<T> extends stateBaseMixin<{}, typeof Object>(Object)
 
   remove(index: number) {
     this._wrapped.splice(index, 1);
-    for (let i = index; i < this.length; i++)
-      this._notifySubscribers(i as never, this._wrapped[i] as never);
+    if (index === this.length)
+      this._notifyThisSubscribers();
+    else
+      for (let i = index; i < this.length; i++)
+        this._notifySubscribers(i as never, this._wrapped[i] as never);
+    
 
   }
 
