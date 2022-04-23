@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "No boilerplate state management",
   "license": "MIT",
-  "main": "src/index.js",
+  "main": "dist/index.js",
   "devDependencies": {
     "@babel/core": "^7.12.9",
     "@babel/preset-env": "^7.12.7",
