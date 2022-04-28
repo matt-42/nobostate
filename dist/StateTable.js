@@ -36,7 +36,10 @@ function stateTableMixin() {
             this._keyDeleteListeners.push(listener);
             return () => lodash_1.default.remove(this._keyDeleteListeners, l => l === listener);
         }
-        ids() { return [...this.keys()]; }
+        ids() {
+            autorun_1.currentAutorunContext === null || autorun_1.currentAutorunContext === void 0 ? void 0 : autorun_1.currentAutorunContext.accesses.set({ state: this, key: null }, true);
+            return [...this.keys()];
+        }
         _subscribeIds(listener) {
             let disposers = [
                 this.onInsert(() => listener(this.ids())),

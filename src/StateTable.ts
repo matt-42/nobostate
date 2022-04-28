@@ -36,7 +36,10 @@ export function stateTableMixin<T extends HasId<any>>() {
       return () => _.remove(this._keyDeleteListeners, l => l === listener);
     }
 
-    ids() { return [...this.keys()]; }
+    ids() { 
+      currentAutorunContext?.accesses.set({ state: this as any, key: null }, true);
+      return [...this.keys()]; 
+    }
 
     _subscribeIds(listener: (ids: IdType<T>[]) => void) {
       let disposers = [
