@@ -270,11 +270,12 @@ export class StateReferenceArray<T extends HasId<any>>
   push(...elements: (IdType<T> | T | StateObject<T>)[]): number {
 
     // insertion of all elements grouped makes 1 history group.
-    this._getRootState()._history.group(() => {
+    const insertall = () => {
       elements.forEach(elt => {
         this.insert(elt, this.length);
       });
-    });
+    }
+    this._getRootState()._history ? this._getRootState()._history.group(insertall) : insertall();
 
     if (elements.length)
       this._notifyThisSubscribers();
