@@ -184,9 +184,7 @@ export function stateTableMixin<T extends HasId<any>>() {
         //   this._logger()?.log(`stateObject with id ${value.id}`);
         this._logger()?.log(value);
 
-        let res = this._getRootState()._history ?
-          this._getRootState()._history.group(insert_code) :
-          insert_code();
+        let res = this._getRootStateHistory().group(insert_code);
 
         this._logger()?.groupEnd();
         return res;

@@ -20,6 +20,8 @@ declare const StateArray_base: {
         _beforeRemoveListeners: ((o: {}) => void)[];
         _onBeforeRemove(listener: (o: {}) => void): () => void;
         _setProps(props: import("./prop").PropSpec): void;
+        _dummyHistory: import("./history").DummyHistory;
+        _getRootStateHistory(): import("./history").NoboHistory | import("./history").DummyHistory;
         _getRootState(): import("./RootState").RootState<unknown>;
         _rootStateAccess(path: string[]): any;
         _logger(): import("./RootState").Logger | null;

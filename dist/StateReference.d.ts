@@ -57,6 +57,8 @@ export declare function stateReferenceNotNullMixin<T extends HasId<any>>(): {
         _onBeforeRemove(listener: (o: {
             __stateReference__: T;
         }) => void): () => void;
+        _dummyHistory: import("./history").DummyHistory;
+        _getRootStateHistory(): import("./history").NoboHistory | import("./history").DummyHistory;
         _getRootState(): import("./RootState").RootState<unknown>;
         _rootStateAccess(path: string[]): any;
         _logger(): import("./RootState").Logger | null;
@@ -114,6 +116,8 @@ export declare function stateReferenceNotNullMixin<T extends HasId<any>>(): {
                 __stateReference__: T;
             }) => void): () => void;
             _setProps(props: PropSpec): void;
+            _dummyHistory: import("./history").DummyHistory;
+            _getRootStateHistory(): import("./history").NoboHistory | import("./history").DummyHistory;
             _getRootState(): import("./RootState").RootState<unknown>;
             _rootStateAccess(path: string[]): any;
             _logger(): import("./RootState").Logger | null;
@@ -180,6 +184,8 @@ export declare function stateReferenceNotNullMixin<T extends HasId<any>>(): {
                 __stateReference__: T;
             }) => void): () => void;
             _setProps(props: PropSpec): void;
+            _dummyHistory: import("./history").DummyHistory;
+            _getRootStateHistory(): import("./history").NoboHistory | import("./history").DummyHistory;
             _getRootState(): import("./RootState").RootState<unknown>;
             _rootStateAccess(path: string[]): any;
             _logger(): import("./RootState").Logger | null;

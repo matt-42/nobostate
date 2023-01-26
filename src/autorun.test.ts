@@ -1,3 +1,4 @@
+import _ from "lodash";
 import { autorun, Reaction } from "./autorun";
 import { createState, stateArray, stateObject, stateTable } from "./nobostate";
 import { StateReference, stateReference, stateReferenceNotNull, StateReferenceNotNull } from "./StateReference";
@@ -457,3 +458,40 @@ test('reaction-on-deleted-object-should-not-happend', () => {
 //   expect(called).toBe(0);
 
 // });
+
+test('autorun-on-statereferencearray', () => {
+
+  type T = {id: number, name: string, age: number};
+  const state = createState({
+    table: stateTable<T>(),
+    arr: stateReferenceArray<T>(),
+  }, {
+    setSpecs: (propsIdx, specs) => {
+      specs.referenceArray(propsIdx.arr, propsIdx.table);
+    }
+  });
+  
+  const toto = state.table.insert({id: newIntId(), name: "toto", age: 1});
+  const tata = state.table.insert({id: newIntId(), name: "tata", age : 2});
+
+  state.arr.push(toto, tata);
+
+  let called = 0;
+  autorun(() => {
+    const x = state.arr;
+    // _.orderBy(state.arr, "name");
+    state.arr.map(s => {
+      const x = s;
+    });
+    called++;
+  });
+
+  expect(called).toBe(1);
+
+  toto.name = "aaa";
+  expect(called).toBe(1);
+
+  state.arr.push({id: newIntId(), name: "xx", age: 3});
+  expect(called).toBe(2);
+
+});

@@ -27,6 +27,8 @@ export declare function stateObjectMixin<T>(): {
         _beforeRemoveListeners: ((o: T) => void)[];
         _onBeforeRemove(listener: (o: T) => void): () => void;
         _setProps(props: import("./prop").PropSpec): void;
+        _dummyHistory: import("./history").DummyHistory;
+        _getRootStateHistory(): import("./history").NoboHistory | import("./history").DummyHistory;
         _getRootState(): import("./RootState").RootState<unknown>;
         _rootStateAccess(path: string[]): any;
         _logger(): import("./RootState").Logger | null;
@@ -58,6 +60,8 @@ export declare function stateObjectMixin<T>(): {
             _beforeRemoveListeners: ((o: T) => void)[];
             _onBeforeRemove(listener: (o: T) => void): () => void;
             _setProps(props: import("./prop").PropSpec): void;
+            _dummyHistory: import("./history").DummyHistory;
+            _getRootStateHistory(): import("./history").NoboHistory | import("./history").DummyHistory;
             _getRootState(): import("./RootState").RootState<unknown>;
             _rootStateAccess(path: string[]): any;
             _logger(): import("./RootState").Logger | null;
@@ -94,6 +98,8 @@ export declare function stateObjectMixin<T>(): {
             _beforeRemoveListeners: ((o: T) => void)[];
             _onBeforeRemove(listener: (o: T) => void): () => void;
             _setProps(props: import("./prop").PropSpec): void;
+            _dummyHistory: import("./history").DummyHistory;
+            _getRootStateHistory(): import("./history").NoboHistory | import("./history").DummyHistory;
             _getRootState(): import("./RootState").RootState<unknown>;
             _rootStateAccess(path: string[]): any;
             _logger(): import("./RootState").Logger | null;
@@ -186,6 +192,8 @@ declare const AnyStateObject_base: {
         _beforeRemoveListeners: ((o: {}) => void)[];
         _onBeforeRemove(listener: (o: {}) => void): () => void;
         _setProps(props: import("./prop").PropSpec): void;
+        _dummyHistory: import("./history").DummyHistory;
+        _getRootStateHistory(): import("./history").NoboHistory | import("./history").DummyHistory;
         _getRootState(): import("./RootState").RootState<unknown>;
         _rootStateAccess(path: string[]): any;
         _logger(): import("./RootState").Logger | null;
@@ -217,6 +225,8 @@ declare const AnyStateObject_base: {
             _beforeRemoveListeners: ((o: {}) => void)[];
             _onBeforeRemove(listener: (o: {}) => void): () => void;
             _setProps(props: import("./prop").PropSpec): void;
+            _dummyHistory: import("./history").DummyHistory;
+            _getRootStateHistory(): import("./history").NoboHistory | import("./history").DummyHistory;
             _getRootState(): import("./RootState").RootState<unknown>;
             _rootStateAccess(path: string[]): any;
             _logger(): import("./RootState").Logger | null;
@@ -253,6 +263,8 @@ declare const AnyStateObject_base: {
             _beforeRemoveListeners: ((o: {}) => void)[];
             _onBeforeRemove(listener: (o: {}) => void): () => void;
             _setProps(props: import("./prop").PropSpec): void;
+            _dummyHistory: import("./history").DummyHistory;
+            _getRootStateHistory(): import("./history").NoboHistory | import("./history").DummyHistory;
             _getRootState(): import("./RootState").RootState<unknown>;
             _rootStateAccess(path: string[]): any;
             _logger(): import("./RootState").Logger | null;

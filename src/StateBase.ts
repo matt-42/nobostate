@@ -1,6 +1,6 @@
 import _ from "lodash";
 import { autorunIgnore } from "./autorun";
-import { NoboHistory } from "./history";
+import { DummyHistory, NoboHistory } from "./history";
 import { PropSpec, StatePropIdentifiers } from "./prop";
 import { RootState } from "./RootState";
 // import { updateState } from "./updateState";
@@ -107,6 +107,15 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
 
     _setProps(props: PropSpec) {
       this._props = props as any;
+    }
+
+    _dummyHistory = new DummyHistory();
+    _getRootStateHistory(): NoboHistory | DummyHistory {
+      const h = this._getRootState()._history;
+
+      if (h) return h;
+
+      return this._dummyHistory;
     }
 
     _getRootState(): RootState<unknown> {

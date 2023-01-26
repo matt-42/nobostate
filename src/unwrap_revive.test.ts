@@ -1,4 +1,4 @@
-import { createState, stateArray, stateTable } from "./nobostate";
+import { createState, stateArray, stateObjectArray, stateTable } from "./nobostate";
 import { stateReference, StateReference, StateReferenceNotNull, stateReferenceNotNull } from "./StateReference";
 import { StateReferenceArray } from "./StateReferenceArray";
 import { unwrapState } from "./unwrap_revive";
@@ -83,6 +83,73 @@ test('revive-reference-array', () => {
   expect(state.table1.assertGet(1).ref[0].id).toBe(42);
   expect(state.table1.assertGet(1).ref[1].id).toBe(43);
 });
+
+test('revive-state-object-array', () => {
+  type Item = { id: number, name: string };
+  const newState = () => createState({
+    arr: stateObjectArray<Item>()
+  });
+
+  const state = newState();
+
+  state._load({
+    _stateObject: {
+      arr: { _stateObjectArray: [ 
+        { _stateObject: { _id: 2, name: "test"} },
+        { _stateObject: { _id: 3, name: "test3"} },
+       ] }
+    }
+  });
+
+  expect(state.arr[0].id == 2);
+  expect(state.arr[0].name == "test");
+  expect(state.arr[1].id == 3);
+  expect(state.arr[1].name == "test3");
+})
+
+
+
+test('revive-state-object-array-of-statereferencearray', () => {
+  type Item3 = { id: number, name: string };
+  type Item2 = { id: number, name: string, item3: StateReferenceNotNull<Item3> };
+  type Item = { id: number, refs: StateReferenceArray<Item2> };
+  const newState = () => createState({
+    items: stateTable<Item2>(),
+    items3: stateTable<Item3>(),
+    arr: stateObjectArray<Item>()
+  }, { setSpecs: (props, specs) => {
+    specs.reference(props.arr.refs, props.items); 
+    specs.reference(props.items.item3, props.items3); 
+  } });
+
+  const state = newState();
+
+  state._load({
+    _stateObject: {
+
+      items3: { _stateTable: [
+        { _stateObject: {id: 1, name: "toto3"} },
+        { _stateObject: {id: 2, name: "tata3"} },
+      ]},
+      items: { _stateTable: [
+        { _stateObject: {id: 1, name: "toto", item3: { _stateReference: 1, _notNull: true } } },
+        { _stateObject: {id: 2, name: "tata", item3: { _stateReference: 2, _notNull: true } } },
+      ]},
+      arr: { _stateObjectArray: [ 
+        { _stateObject: { _id: 2, refs: { _stateReferenceArray: [ 1, 2] }} },
+        { _stateObject: { _id: 3, refs: { _stateReferenceArray: [ 2] } } },
+       ] }
+    }
+  });
+
+  expect(state.arr[0].id == 2);
+  expect(state.arr[0].refs[0].name == "toto");
+  expect(state.arr[0].refs[1].name == "tata");
+  expect(state.arr[1].refs[0].name == "tata");
+
+  expect(state.arr[0].refs[0].item3.ref.name == "toto3");
+  expect(state.arr[0].refs[1].item3.ref.name == "tata3");
+})
 
 test('revive-notnull-reference-array', () => {
   type Item = { id: number };

@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.stateBaseMixin = exports.callListeners = void 0;
 const lodash_1 = __importDefault(require("lodash"));
+const history_1 = require("./history");
 // import { updateState } from "./updateState";
 function callListeners(listeners, ...args) {
     var _a;
@@ -40,6 +41,7 @@ function stateBaseMixin(wrapped) {
             this._parentListener = null;
             this._removeListeners = [];
             this._beforeRemoveListeners = [];
+            this._dummyHistory = new history_1.DummyHistory();
             this._parentDispose = null;
             this._children = [];
         }
@@ -67,6 +69,12 @@ function stateBaseMixin(wrapped) {
         }
         _setProps(props) {
             this._props = props;
+        }
+        _getRootStateHistory() {
+            const h = this._getRootState()._history;
+            if (h)
+                return h;
+            return this._dummyHistory;
         }
         _getRootState() {
             let it = this;

@@ -57,7 +57,9 @@ class RootStateImpl extends StateObject_1.stateObjectMixin() {
                 unwrap_revive_1.reviveReferences(this, data);
             });
         });
-        this._checkReferencesNotNull();
+        if (!this._checkReferencesNotNull()) {
+            throw new Error("Error, found at least one non null reference in the model");
+        }
     }
     _beginTransaction() {
         this._inTransaction = true;

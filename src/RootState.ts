@@ -64,7 +64,9 @@ export class RootStateImpl<T> extends stateObjectMixin<{}>() {
 
       });
     });
-    this._checkReferencesNotNull();
+    if (!this._checkReferencesNotNull()) {
+      throw new Error("Error, found at least one non null reference in the model");
+    }
   }
 
   _inTransaction: boolean = false;

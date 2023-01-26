@@ -49,6 +49,8 @@ export declare function stateTableMixin<T extends HasId<any>>(): {
         _beforeRemoveListeners: ((o: Map<IdType<T>, StateObject<T>>) => void)[];
         _onBeforeRemove(listener: (o: Map<IdType<T>, StateObject<T>>) => void): () => void;
         _setProps(props: import("./prop").PropSpec): void;
+        _dummyHistory: import("./history").DummyHistory;
+        _getRootStateHistory(): import("./history").NoboHistory | import("./history").DummyHistory;
         _getRootState(): import("./RootState").RootState<unknown>;
         _rootStateAccess(path: string[]): any;
         _logger(): import("./RootState").Logger | null;
@@ -81,6 +83,8 @@ export declare function stateTableMixin<T extends HasId<any>>(): {
             _beforeRemoveListeners: ((o: Map<IdType<T>, StateObject<T>>) => void)[];
             _onBeforeRemove(listener: (o: Map<IdType<T>, StateObject<T>>) => void): () => void;
             _setProps(props: import("./prop").PropSpec): void;
+            _dummyHistory: import("./history").DummyHistory;
+            _getRootStateHistory(): import("./history").NoboHistory | import("./history").DummyHistory;
             _getRootState(): import("./RootState").RootState<unknown>;
             _rootStateAccess(path: string[]): any;
             _logger(): import("./RootState").Logger | null;
@@ -119,6 +123,8 @@ export declare function stateTableMixin<T extends HasId<any>>(): {
             _beforeRemoveListeners: ((o: Map<IdType<T>, StateObject<T>>) => void)[];
             _onBeforeRemove(listener: (o: Map<IdType<T>, StateObject<T>>) => void): () => void;
             _setProps(props: import("./prop").PropSpec): void;
+            _dummyHistory: import("./history").DummyHistory;
+            _getRootStateHistory(): import("./history").NoboHistory | import("./history").DummyHistory;
             _getRootState(): import("./RootState").RootState<unknown>;
             _rootStateAccess(path: string[]): any;
             _logger(): import("./RootState").Logger | null;

@@ -34,6 +34,8 @@ declare const RootStateImpl_base: {
         _beforeRemoveListeners: ((o: {}) => void)[];
         _onBeforeRemove(listener: (o: {}) => void): () => void;
         _setProps(props: PropSpec): void;
+        _dummyHistory: import("./history").DummyHistory;
+        _getRootStateHistory(): NoboHistory | import("./history").DummyHistory;
         _getRootState(): RootState<unknown>;
         _rootStateAccess(path: string[]): any;
         _logger(): Logger | null;
@@ -65,6 +67,8 @@ declare const RootStateImpl_base: {
             _beforeRemoveListeners: ((o: {}) => void)[];
             _onBeforeRemove(listener: (o: {}) => void): () => void;
             _setProps(props: PropSpec): void;
+            _dummyHistory: import("./history").DummyHistory;
+            _getRootStateHistory(): NoboHistory | import("./history").DummyHistory;
             _getRootState(): RootState<unknown>;
             _rootStateAccess(path: string[]): any;
             _logger(): Logger | null;
@@ -101,6 +105,8 @@ declare const RootStateImpl_base: {
             _beforeRemoveListeners: ((o: {}) => void)[];
             _onBeforeRemove(listener: (o: {}) => void): () => void;
             _setProps(props: PropSpec): void;
+            _dummyHistory: import("./history").DummyHistory;
+            _getRootStateHistory(): NoboHistory | import("./history").DummyHistory;
             _getRootState(): RootState<unknown>;
             _rootStateAccess(path: string[]): any;
             _logger(): Logger | null;

@@ -1,4 +1,4 @@
-import { NoboHistory } from "./history";
+import { DummyHistory, NoboHistory } from "./history";
 import { PropSpec, StatePropIdentifiers } from "./prop";
 import { RootState } from "./RootState";
 export declare function callListeners(listeners: StateBaseInterface<any> | ((...args: any[]) => void)[], ...args: any[]): void;
@@ -27,6 +27,8 @@ export declare function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Cto
         _beforeRemoveListeners: ((o: T) => void)[];
         _onBeforeRemove(listener: (o: T) => void): () => void;
         _setProps(props: PropSpec): void;
+        _dummyHistory: DummyHistory;
+        _getRootStateHistory(): NoboHistory | DummyHistory;
         _getRootState(): RootState<unknown>;
         _rootStateAccess(path: string[]): any;
         _logger(): import("./RootState").Logger | null;

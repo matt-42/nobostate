@@ -55,4 +55,15 @@ export declare class NoboHistory {
     redo(): void;
     goto(index: number): void;
 }
+export declare class DummyHistory {
+    startGroup(groupId?: string | null): void;
+    endGroup(): void;
+    ignore<R>(f: () => R): R;
+    asyncIgnore<R>(f: () => Promise<R>): Promise<R>;
+    group<R>(f: () => R): R;
+    group<R>(groupId: string, f: () => R): R;
+    push(item: HistoryAction): void;
+    redo(): void;
+    goto(index: number): void;
+}
 export {};
