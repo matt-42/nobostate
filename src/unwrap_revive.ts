@@ -43,7 +43,7 @@ export function reviveReferences(state: any, srcData: any): any {
   }
   else if (state._isStateObject) {
     for (let k in state)
-      if (!k.startsWith("_"))
+      if (!k.startsWith("_") && srcData._stateObject[k])
         reviveReferences(state[k], srcData._stateObject[k]);
     return;
   }

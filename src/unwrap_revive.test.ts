@@ -208,3 +208,33 @@ test('revive-array', () => {
   expect(state.arr1[3]).toBe(3);
 
 });
+test('revive-object-incomplete', () => {
+  type Item = { id: number };
+  const newState = () => createState({
+    table1: stateTable<{ id: number }>(),
+    table2: stateTable<{ id: number, ref: StateReferenceNotNull<Item>, ref2: StateReference<Item> }>(),
+  }, {
+    setSpecs: (props, specs) => {
+      specs.reference(props.table2.ref, props.table1);
+      specs.reference(props.table2.ref2, props.table1);
+    }
+  });
+
+  const state = newState();
+  state._load({
+    _stateObject: {
+      table1: { _stateTable: [{ _stateObject: { id: 1 } }] },
+      // table2: {
+      //   _stateTable: [{
+      //     _stateObject: {
+      //       id: 1,
+      //       ref: { _stateReference: 1, _notNull: true },
+      //       ref2: { _stateReference: 1 }
+      //     }
+      //   }]
+      // }
+    }
+  });
+
+
+});
