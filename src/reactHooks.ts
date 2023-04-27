@@ -288,3 +288,22 @@ export function observer<P>(component : React.FunctionComponent<P>, name ? : str
     return reaction.track(() => component(props), name) || null;
   }
 }
+
+export function debouncedObserver<P>(component : React.FunctionComponent<P>, name ? : string) :  React.FunctionComponent<P> {
+  let firstCall = true;
+  return (props: P) => {
+
+    const refresh = _.debounce(useRefreshThisComponent());
+    const reaction = useMemo(() => new Reaction(() => {
+      // console.log("Observer::refresh ", name);
+      refresh(); 
+    }), []);
+
+    useEffect(() => () => reaction.dispose(), []);
+
+    // console.log("Observer::render ", name, firstCall);
+
+    firstCall = false;
+    return reaction.track(() => component(props), name) || null;
+  }
+}

@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.observer = exports.useNoboObserver = exports.useNoboIds = exports.useNoboMapSelector = exports.useNoboRefKey = exports.useNoboRef = exports.useNoboSelector = exports.useNoboKeys = exports.useNoboKey = exports.useNoboStateImpl = exports.useRefreshThisComponent = exports.useMounted = exports.useNoboState = void 0;
+exports.debouncedObserver = exports.observer = exports.useNoboObserver = exports.useNoboIds = exports.useNoboMapSelector = exports.useNoboRefKey = exports.useNoboRef = exports.useNoboSelector = exports.useNoboKeys = exports.useNoboKey = exports.useNoboStateImpl = exports.useRefreshThisComponent = exports.useMounted = exports.useNoboState = void 0;
 const lodash_1 = __importDefault(require("lodash"));
 const react_1 = require("react");
 const autorun_1 = require("./autorun");
@@ -204,4 +204,19 @@ function observer(component, name) {
     };
 }
 exports.observer = observer;
+function debouncedObserver(component, name) {
+    let firstCall = true;
+    return (props) => {
+        const refresh = lodash_1.default.debounce(useRefreshThisComponent());
+        const reaction = react_1.useMemo(() => new autorun_1.Reaction(() => {
+            // console.log("Observer::refresh ", name);
+            refresh();
+        }), []);
+        react_1.useEffect(() => () => reaction.dispose(), []);
+        // console.log("Observer::render ", name, firstCall);
+        firstCall = false;
+        return reaction.track(() => component(props), name) || null;
+    };
+}
+exports.debouncedObserver = debouncedObserver;
 //# sourceMappingURL=reactHooks.js.map
