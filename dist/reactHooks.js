@@ -204,10 +204,10 @@ function observer(component, name) {
     };
 }
 exports.observer = observer;
-function debouncedObserver(component, name) {
+function debouncedObserver(component, name, waitMs) {
     let firstCall = true;
     return (props) => {
-        const refresh = lodash_1.default.debounce(useRefreshThisComponent());
+        const refresh = lodash_1.default.debounce(useRefreshThisComponent(), waitMs);
         const reaction = react_1.useMemo(() => new autorun_1.Reaction(() => {
             // console.log("Observer::refresh ", name);
             refresh();

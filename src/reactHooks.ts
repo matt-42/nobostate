@@ -289,11 +289,11 @@ export function observer<P>(component : React.FunctionComponent<P>, name ? : str
   }
 }
 
-export function debouncedObserver<P>(component : React.FunctionComponent<P>, name ? : string) :  React.FunctionComponent<P> {
+export function debouncedObserver<P>(component : React.FunctionComponent<P>, name ? : string, waitMs?: number) :  React.FunctionComponent<P> {
   let firstCall = true;
   return (props: P) => {
 
-    const refresh = _.debounce(useRefreshThisComponent());
+    const refresh = _.debounce(useRefreshThisComponent(), waitMs);
     const reaction = useMemo(() => new Reaction(() => {
       // console.log("Observer::refresh ", name);
       refresh(); 
