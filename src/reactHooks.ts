@@ -267,7 +267,7 @@ export function useNoboObserver<R>(f : () => R) {
   useEffect(() => {
     return autorun(() => { 
       const newVal = f();
-      if (newVal != valueAtLastRender.current)
+      if (!_.isEqual(newVal, valueAtLastRender.current))
         return setState(newVal); 
     });
   }, []);

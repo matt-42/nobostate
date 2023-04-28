@@ -187,7 +187,7 @@ function useNoboObserver(f) {
     react_1.useEffect(() => {
         return autorun_1.autorun(() => {
             const newVal = f();
-            if (newVal != valueAtLastRender.current)
+            if (!lodash_1.default.isEqual(newVal, valueAtLastRender.current))
                 return setState(newVal);
         });
     }, []);
