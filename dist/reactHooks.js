@@ -182,7 +182,7 @@ function useNoboIds(table) {
 }
 exports.useNoboIds = useNoboIds;
 function useNoboObserver(f) {
-    const [state, setState] = react_1.useState(null);
+    const [state, setState] = react_1.useState(f());
     react_1.useEffect(() => {
         return autorun_1.autorun(() => { return setState(f()); });
     }, []);

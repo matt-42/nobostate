@@ -261,7 +261,7 @@ export function useNoboIds<T extends HasId<any>>(table: StateTable<T>) {
 
 export function useNoboObserver<R>(f : () => R) {
 
-  const [state, setState] = useState<R>(null as any);
+  const [state, setState] = useState<R>(f());
 
   useEffect(() => {
     return autorun(() => { return setState(f()); });
