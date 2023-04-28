@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { autorun, Reaction } from "./autorun";
 import { RootState } from "./RootState";
 import { StateArray, StateObjectArray } from "./StateArray";
@@ -261,13 +261,22 @@ export function useNoboIds<T extends HasId<any>>(table: StateTable<T>) {
 
 export function useNoboObserver<R>(f : () => R) {
 
+  const valueAtLastRender = useRef<R>();
   const [state, setState] = useState<R>(f());
 
   useEffect(() => {
-    return autorun(() => { return setState(f()); });
+    return autorun(() => { 
+      const newVal = f();
+      if (newVal != valueAtLastRender.current)
+        return setState(newVal); 
+    });
   }, []);
 
-  return state;
+  // when rerendering, refresh the ref.
+  valueAtLastRender.current = f();
+  return valueAtLastRender.current;
+
+  // return state;
 }
 
 export function observer<P>(component : React.FunctionComponent<P>, name ? : string) :  React.FunctionComponent<P> {

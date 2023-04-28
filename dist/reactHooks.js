@@ -182,11 +182,19 @@ function useNoboIds(table) {
 }
 exports.useNoboIds = useNoboIds;
 function useNoboObserver(f) {
+    const valueAtLastRender = react_1.useRef();
     const [state, setState] = react_1.useState(f());
     react_1.useEffect(() => {
-        return autorun_1.autorun(() => { return setState(f()); });
+        return autorun_1.autorun(() => {
+            const newVal = f();
+            if (newVal != valueAtLastRender.current)
+                return setState(newVal);
+        });
     }, []);
-    return state;
+    // when rerendering, refresh the ref.
+    valueAtLastRender.current = f();
+    return valueAtLastRender.current;
+    // return state;
 }
 exports.useNoboObserver = useNoboObserver;
 function observer(component, name) {
