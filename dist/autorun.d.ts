@@ -27,6 +27,7 @@ declare type AutorunParams = {
 };
 export declare function autorun(f: AutorunParams, name?: string): () => void;
 export declare function autorun(trackAndReact: AutorunFunction, name?: string): () => void;
+export declare function debouncedAutorun(f: AutorunFunction | AutorunParams, name?: string, wait?: number): () => void;
 export declare class Reaction {
     ctx: AutorunContext;
     disposed: boolean;

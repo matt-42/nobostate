@@ -102,6 +102,22 @@ export function autorun(f: AutorunFunction | AutorunParams,
   return () => reaction.dispose();
 }
 
+
+export function debouncedAutorun(f: AutorunFunction | AutorunParams,
+  name?: string, wait = 10): () => void {
+
+  const params = f as AutorunParams;
+  const trackAndReact = f as AutorunFunction;
+  const isParams = params.track !== undefined
+  const reaction = new Reaction(() => { });
+
+  const track = () => reaction.track(isParams ? params.track : trackAndReact, name);
+  reaction.reactionCallback = _.debounce(isParams ? params.react : track, wait);
+
+  track();
+  return () => reaction.dispose();
+}
+
 const reactionStack = [] as AutorunContext[];
 
 export class Reaction {

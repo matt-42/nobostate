@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.Reaction = exports.autorun = exports.currentAutorunContext = exports.autorunIgnore = void 0;
+exports.Reaction = exports.debouncedAutorun = exports.autorun = exports.currentAutorunContext = exports.autorunIgnore = void 0;
 const lodash_1 = __importDefault(require("lodash"));
 function autorunIgnore(f) {
     if (!exports.currentAutorunContext)
@@ -81,6 +81,17 @@ function autorun(f, name) {
     return () => reaction.dispose();
 }
 exports.autorun = autorun;
+function debouncedAutorun(f, name, wait = 10) {
+    const params = f;
+    const trackAndReact = f;
+    const isParams = params.track !== undefined;
+    const reaction = new Reaction(() => { });
+    const track = () => reaction.track(isParams ? params.track : trackAndReact, name);
+    reaction.reactionCallback = lodash_1.default.debounce(isParams ? params.react : track, wait);
+    track();
+    return () => reaction.dispose();
+}
+exports.debouncedAutorun = debouncedAutorun;
 const reactionStack = [];
 class Reaction {
     constructor(reactionCallback) {
