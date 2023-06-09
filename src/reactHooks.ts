@@ -259,21 +259,50 @@ export function useNoboIds<T extends HasId<any>>(table: StateTable<T>) {
   // return this._useSelector(table => [...table.keys()]); 
 }
 
+const refreshQueue : ([React.RefObject<boolean>,  ()=>void])[] = [];
+let refreshTimeout : NodeJS.Timeout | null = null;
+
+function flushRefreshQueue() {
+  refreshTimeout = null;
+  for (let elt of refreshQueue) {
+    if (elt[0].current) elt[1]();
+  }
+  refreshQueue.length = 0;
+}
+
+function triggerRefresh() {
+  if (refreshTimeout === null)
+   refreshTimeout = setTimeout(flushRefreshQueue, 300);
+}
+
+
 export function useNoboObserver<R>(f : () => R) {
 
   const valueAtLastRender = useRef<R>();
   const [state, setState] = useState<R>(f());
 
+  const dirty = useRef(true);
+
+  // const refresh = useCallback(() => {
+  //   if (!_.isEqual(newVal, valueAtLastRender.current))
+  //   return setState(newVal); 
+  // }, []);
+
   useEffect(() => {
     return autorun(() => { 
       const newVal = f();
-      if (!_.isEqual(newVal, valueAtLastRender.current))
-        return setState(newVal); 
+      dirty.current = true;
+      refreshQueue.push([dirty, () => {
+        if (!_.isEqual(newVal, valueAtLastRender.current))
+        return setState(newVal);     
+      }]);
+      triggerRefresh();
     });
   }, []);
 
   // when rerendering, refresh the ref.
   valueAtLastRender.current = f();
+  dirty.current = false;
   return valueAtLastRender.current;
 
   // return state;
@@ -298,21 +327,6 @@ export function observer<P>(component : React.FunctionComponent<P>, name ? : str
   }
 }
 
-const refreshQueue : ([React.RefObject<boolean>,  ()=>void])[] = [];
-let refreshTimeout : NodeJS.Timeout | null = null;
-
-function flushRefreshQueue() {
-  refreshTimeout = null;
-  for (let elt of refreshQueue) {
-    if (elt[0].current) elt[1]();
-  }
-  refreshQueue.length = 0;
-}
-
-function triggerRefresh() {
-  if (refreshTimeout === null)
-   refreshTimeout = setTimeout(flushRefreshQueue, 300);
-}
 
 export function debouncedObserver<P>(component : React.FunctionComponent<P>, name ? : string, waitMs?: number) :  React.FunctionComponent<P> {
   let firstCall = true;

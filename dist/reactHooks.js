@@ -181,18 +181,42 @@ function useNoboIds(table) {
     // return this._useSelector(table => [...table.keys()]); 
 }
 exports.useNoboIds = useNoboIds;
+const refreshQueue = [];
+let refreshTimeout = null;
+function flushRefreshQueue() {
+    refreshTimeout = null;
+    for (let elt of refreshQueue) {
+        if (elt[0].current)
+            elt[1]();
+    }
+    refreshQueue.length = 0;
+}
+function triggerRefresh() {
+    if (refreshTimeout === null)
+        refreshTimeout = setTimeout(flushRefreshQueue, 300);
+}
 function useNoboObserver(f) {
     const valueAtLastRender = react_1.useRef();
     const [state, setState] = react_1.useState(f());
+    const dirty = react_1.useRef(true);
+    // const refresh = useCallback(() => {
+    //   if (!_.isEqual(newVal, valueAtLastRender.current))
+    //   return setState(newVal); 
+    // }, []);
     react_1.useEffect(() => {
         return autorun_1.autorun(() => {
             const newVal = f();
-            if (!lodash_1.default.isEqual(newVal, valueAtLastRender.current))
-                return setState(newVal);
+            dirty.current = true;
+            refreshQueue.push([dirty, () => {
+                    if (!lodash_1.default.isEqual(newVal, valueAtLastRender.current))
+                        return setState(newVal);
+                }]);
+            triggerRefresh();
         });
     }, []);
     // when rerendering, refresh the ref.
     valueAtLastRender.current = f();
+    dirty.current = false;
     return valueAtLastRender.current;
     // return state;
 }
@@ -212,20 +236,6 @@ function observer(component, name) {
     };
 }
 exports.observer = observer;
-const refreshQueue = [];
-let refreshTimeout = null;
-function flushRefreshQueue() {
-    refreshTimeout = null;
-    for (let elt of refreshQueue) {
-        if (elt[0].current)
-            elt[1]();
-    }
-    refreshQueue.length = 0;
-}
-function triggerRefresh() {
-    if (refreshTimeout === null)
-        refreshTimeout = setTimeout(flushRefreshQueue, 300);
-}
 function debouncedObserver(component, name, waitMs) {
     let firstCall = true;
     return (props) => {
