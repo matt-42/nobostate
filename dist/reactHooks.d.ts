@@ -1,4 +1,4 @@
-/// <reference types="react" />
+import React from "react";
 import { RootState } from "./RootState";
 import { StateArray, StateObjectArray } from "./StateArray";
 import { Keys } from "./StateBase";

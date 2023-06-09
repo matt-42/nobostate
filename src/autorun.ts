@@ -120,6 +120,11 @@ export function debouncedAutorun(f: AutorunFunction | AutorunParams,
 
 const reactionStack = [] as AutorunContext[];
 
+// Reaction class.
+//    take 2 functions:
+//       track:  run the function and remember every state members access.
+//       reaction: run this function whenever a state members accessed by the track function
+//                 has been changed. 
 export class Reaction {
 
   ctx: AutorunContext;

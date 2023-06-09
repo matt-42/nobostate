@@ -93,6 +93,11 @@ function debouncedAutorun(f, name, wait = 10) {
 }
 exports.debouncedAutorun = debouncedAutorun;
 const reactionStack = [];
+// Reaction class.
+//    take 2 functions:
+//       track:  run the function and remember every state members access.
+//       reaction: run this function whenever a state members accessed by the track function
+//                 has been changed. 
 class Reaction {
     constructor(reactionCallback) {
         this.disposed = false;

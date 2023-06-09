@@ -1,5 +1,5 @@
 import _ from "lodash";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { autorun, Reaction } from "./autorun";
 import { RootState } from "./RootState";
 import { StateArray, StateObjectArray } from "./StateArray";
@@ -298,20 +298,52 @@ export function observer<P>(component : React.FunctionComponent<P>, name ? : str
   }
 }
 
+const refreshQueue : ([React.RefObject<boolean>,  ()=>void])[] = [];
+let refreshTimeout : NodeJS.Timeout | null = null;
+
+function flushRefreshQueue() {
+  refreshTimeout = null;
+  for (let elt of refreshQueue) {
+    if (elt[0].current) elt[1]();
+  }
+  refreshQueue.length = 0;
+}
+
+function triggerRefresh() {
+  if (refreshTimeout === null)
+   refreshTimeout = setTimeout(flushRefreshQueue, 10);
+}
+
 export function debouncedObserver<P>(component : React.FunctionComponent<P>, name ? : string, waitMs?: number) :  React.FunctionComponent<P> {
   let firstCall = true;
   return (props: P) => {
 
+    // Todo: 
+    //    in case of nested observers, avoid dupplicate renders.
+    //    idea:
+    //        instead of refreshing in the reaction.
+    //        push the refresh callback into a queue and mark the component as dirty.
+    //        when to run the refresh ?
+    //          set a timeout to flush the refresh queue.
+    //          when flushing the queue, we mark components as clean so they are not rendered twice.
+    //          before flushing the queue, sort the components with respect to the hierarchy.
+    //               maybe they are already sorted ?
+
+    const dirty = useRef(false);
     const refresh = _.debounce(useRefreshThisComponent(), waitMs);
     const reaction = useMemo(() => new Reaction(() => {
       // console.log("Observer::refresh ", name);
-      refresh(); 
-    }), []);
+      // refresh(); 
+      refreshQueue.push([dirty, refresh]);
+      dirty.current = true;
+      triggerRefresh();
+    }), [dirty]);
 
     useEffect(() => () => reaction.dispose(), []);
 
     // console.log("Observer::render ", name, firstCall);
 
+    dirty.current = false;
     firstCall = false;
     return reaction.track(() => component(props), name) || null;
   }

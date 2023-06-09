@@ -212,16 +212,45 @@ function observer(component, name) {
     };
 }
 exports.observer = observer;
+const refreshQueue = [];
+let refreshTimeout = null;
+function flushRefreshQueue() {
+    refreshTimeout = null;
+    for (let elt of refreshQueue) {
+        if (elt[0].current)
+            elt[1]();
+    }
+    refreshQueue.length = 0;
+}
+function triggerRefresh() {
+    if (refreshTimeout === null)
+        refreshTimeout = setTimeout(flushRefreshQueue, 10);
+}
 function debouncedObserver(component, name, waitMs) {
     let firstCall = true;
     return (props) => {
+        // Todo: 
+        //    in case of nested observers, avoid dupplicate renders.
+        //    idea:
+        //        instead of refreshing in the reaction.
+        //        push the refresh callback into a queue and mark the component as dirty.
+        //        when to run the refresh ?
+        //          set a timeout to flush the refresh queue.
+        //          when flushing the queue, we mark components as clean so they are not rendered twice.
+        //          before flushing the queue, sort the components with respect to the hierarchy.
+        //               maybe they are already sorted ?
+        const dirty = react_1.useRef(false);
         const refresh = lodash_1.default.debounce(useRefreshThisComponent(), waitMs);
         const reaction = react_1.useMemo(() => new autorun_1.Reaction(() => {
             // console.log("Observer::refresh ", name);
-            refresh();
-        }), []);
+            // refresh(); 
+            refreshQueue.push([dirty, refresh]);
+            dirty.current = true;
+            triggerRefresh();
+        }), [dirty]);
         react_1.useEffect(() => () => reaction.dispose(), []);
         // console.log("Observer::render ", name, firstCall);
+        dirty.current = false;
         firstCall = false;
         return reaction.track(() => component(props), name) || null;
     };
