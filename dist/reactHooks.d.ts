@@ -34,7 +34,7 @@ export declare function useNoboRef<T extends HasId<any>>(state: StateReferenceNo
 export declare function useNoboRefKey<T extends HasId<any>>(state: StateReference<T>, key: Keys<T>): any;
 export declare function useNoboMapSelector<T extends HasId<any>, R>(table: StateTable<T>, mapSelector: (o: StateObject<T>) => R): R[];
 export declare function useNoboIds<T extends HasId<any>>(table: StateTable<T>): IdType<T>[];
-export declare function useNoboObserver<R>(f: () => R): R;
+export declare function useNoboObserver<R>(f: () => R, name?: string): R;
 export declare function observer<P>(component: React.FunctionComponent<P>, name?: string): React.FunctionComponent<P>;
 export declare function debouncedObserver<P>(component: React.FunctionComponent<P>, name?: string, waitMs?: number): React.FunctionComponent<P>;
 export {};

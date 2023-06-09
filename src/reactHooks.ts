@@ -259,15 +259,45 @@ export function useNoboIds<T extends HasId<any>>(table: StateTable<T>) {
   // return this._useSelector(table => [...table.keys()]); 
 }
 
-const refreshQueue : ([React.RefObject<boolean>,  ()=>void])[] = [];
+const refreshQueue : ([React.RefObject<boolean>,  ()=>void, string])[] = [];
 let refreshTimeout : NodeJS.Timeout | null = null;
 
 function flushRefreshQueue() {
+  // console.log("==== FLUSH REFRESH QUEUE =====", refreshQueue.length);
+  if (refreshQueue.length === 0) return;
+
+  // console.log("==== FLUSH REFRESH QUEUE =====");
   refreshTimeout = null;
-  for (let elt of refreshQueue) {
-    if (elt[0].current) elt[1]();
+
+  while (refreshQueue.length) {
+    const elt = refreshQueue.shift();
+    if (!elt) continue;
+  // for (let elt of refreshQueue) {
+    if (elt[0].current) 
+    {
+      // console.log(`====  FLUSH REFRESH QUEUE : ${elt[2]} =====`);
+      elt[1]();
+    }
+    else {
+      // console.log(`====  FLUSH REFRESH QUEUE : skip ${elt[2]} =====`);
+    }
+
   }
   refreshQueue.length = 0;
+  // console.log("==== END OF FLUSH REFRESH QUEUE =====");
+
+  // const elt = refreshQueue.shift();
+  // if (!elt) return;
+  // if (elt[0].current) 
+  // {
+  //   console.log(`====  FLUSH REFRESH QUEUE : ${elt[2]} =====`);
+  //   elt[1]();
+  // }
+  // else {
+  //   console.log(`====  FLUSH REFRESH QUEUE : skip ${elt[2]} =====`);
+  // }
+  // refreshTimeout = setTimeout(flushRefreshQueue, 10);
+
 }
 
 function triggerRefresh() {
@@ -276,7 +306,7 @@ function triggerRefresh() {
 }
 
 
-export function useNoboObserver<R>(f : () => R) {
+export function useNoboObserver<R>(f : () => R, name? : string) {
 
   const valueAtLastRender = useRef<R>();
   const [state, setState] = useState<R>(f());
@@ -291,12 +321,14 @@ export function useNoboObserver<R>(f : () => R) {
   useEffect(() => {
     return autorun(() => { 
       const newVal = f();
-      dirty.current = true;
-      refreshQueue.push([dirty, () => {
-        if (!_.isEqual(newVal, valueAtLastRender.current))
-        return setState(newVal);     
-      }]);
-      triggerRefresh();
+      if (!_.isEqual(newVal, valueAtLastRender.current))
+      {
+        dirty.current = true;
+        refreshQueue.push([dirty, () => {
+          return setState(newVal);     
+        }, name || "unknown"]);
+        triggerRefresh();
+      }
     });
   }, []);
 
@@ -349,7 +381,7 @@ export function debouncedObserver<P>(component : React.FunctionComponent<P>, nam
     const reaction = useMemo(() => new Reaction(() => {
       // console.log("Observer::refresh ", name);
       // refresh(); 
-      refreshQueue.push([dirty, refresh]);
+      refreshQueue.push([dirty, refresh, name || component.name]);
       dirty.current = true;
       triggerRefresh();
     }), [dirty]);

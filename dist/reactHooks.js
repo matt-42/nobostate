@@ -184,18 +184,43 @@ exports.useNoboIds = useNoboIds;
 const refreshQueue = [];
 let refreshTimeout = null;
 function flushRefreshQueue() {
+    // console.log("==== FLUSH REFRESH QUEUE =====", refreshQueue.length);
+    if (refreshQueue.length === 0)
+        return;
+    // console.log("==== FLUSH REFRESH QUEUE =====");
     refreshTimeout = null;
-    for (let elt of refreshQueue) {
-        if (elt[0].current)
+    while (refreshQueue.length) {
+        const elt = refreshQueue.shift();
+        if (!elt)
+            continue;
+        // for (let elt of refreshQueue) {
+        if (elt[0].current) {
+            // console.log(`====  FLUSH REFRESH QUEUE : ${elt[2]} =====`);
             elt[1]();
+        }
+        else {
+            // console.log(`====  FLUSH REFRESH QUEUE : skip ${elt[2]} =====`);
+        }
     }
     refreshQueue.length = 0;
+    // console.log("==== END OF FLUSH REFRESH QUEUE =====");
+    // const elt = refreshQueue.shift();
+    // if (!elt) return;
+    // if (elt[0].current) 
+    // {
+    //   console.log(`====  FLUSH REFRESH QUEUE : ${elt[2]} =====`);
+    //   elt[1]();
+    // }
+    // else {
+    //   console.log(`====  FLUSH REFRESH QUEUE : skip ${elt[2]} =====`);
+    // }
+    // refreshTimeout = setTimeout(flushRefreshQueue, 10);
 }
 function triggerRefresh() {
     if (refreshTimeout === null)
         refreshTimeout = setTimeout(flushRefreshQueue, 300);
 }
-function useNoboObserver(f) {
+function useNoboObserver(f, name) {
     const valueAtLastRender = react_1.useRef();
     const [state, setState] = react_1.useState(f());
     const dirty = react_1.useRef(true);
@@ -206,12 +231,13 @@ function useNoboObserver(f) {
     react_1.useEffect(() => {
         return autorun_1.autorun(() => {
             const newVal = f();
-            dirty.current = true;
-            refreshQueue.push([dirty, () => {
-                    if (!lodash_1.default.isEqual(newVal, valueAtLastRender.current))
+            if (!lodash_1.default.isEqual(newVal, valueAtLastRender.current)) {
+                dirty.current = true;
+                refreshQueue.push([dirty, () => {
                         return setState(newVal);
-                }]);
-            triggerRefresh();
+                    }, name || "unknown"]);
+                triggerRefresh();
+            }
         });
     }, []);
     // when rerendering, refresh the ref.
@@ -255,7 +281,7 @@ function debouncedObserver(component, name, waitMs) {
         const reaction = react_1.useMemo(() => new autorun_1.Reaction(() => {
             // console.log("Observer::refresh ", name);
             // refresh(); 
-            refreshQueue.push([dirty, refresh]);
+            refreshQueue.push([dirty, refresh, name || component.name]);
             dirty.current = true;
             triggerRefresh();
         }), [dirty]);
