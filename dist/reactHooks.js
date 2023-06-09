@@ -224,7 +224,7 @@ function flushRefreshQueue() {
 }
 function triggerRefresh() {
     if (refreshTimeout === null)
-        refreshTimeout = setTimeout(flushRefreshQueue, 10);
+        refreshTimeout = setTimeout(flushRefreshQueue, 300);
 }
 function debouncedObserver(component, name, waitMs) {
     let firstCall = true;
@@ -240,7 +240,8 @@ function debouncedObserver(component, name, waitMs) {
         //          before flushing the queue, sort the components with respect to the hierarchy.
         //               maybe they are already sorted ?
         const dirty = react_1.useRef(false);
-        const refresh = lodash_1.default.debounce(useRefreshThisComponent(), waitMs);
+        // const refresh = _.debounce(useRefreshThisComponent(), waitMs);
+        const refresh = useRefreshThisComponent();
         const reaction = react_1.useMemo(() => new autorun_1.Reaction(() => {
             // console.log("Observer::refresh ", name);
             // refresh(); 

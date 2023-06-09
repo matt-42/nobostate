@@ -311,7 +311,7 @@ function flushRefreshQueue() {
 
 function triggerRefresh() {
   if (refreshTimeout === null)
-   refreshTimeout = setTimeout(flushRefreshQueue, 10);
+   refreshTimeout = setTimeout(flushRefreshQueue, 300);
 }
 
 export function debouncedObserver<P>(component : React.FunctionComponent<P>, name ? : string, waitMs?: number) :  React.FunctionComponent<P> {
@@ -330,7 +330,8 @@ export function debouncedObserver<P>(component : React.FunctionComponent<P>, nam
     //               maybe they are already sorted ?
 
     const dirty = useRef(false);
-    const refresh = _.debounce(useRefreshThisComponent(), waitMs);
+    // const refresh = _.debounce(useRefreshThisComponent(), waitMs);
+    const refresh = useRefreshThisComponent();
     const reaction = useMemo(() => new Reaction(() => {
       // console.log("Observer::refresh ", name);
       // refresh(); 
