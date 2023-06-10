@@ -1,10 +1,6 @@
 "use strict";
-var __importDefault = (this && this.__importDefault) || function (mod) {
-    return (mod && mod.__esModule) ? mod : { "default": mod };
-};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.makeRootState = exports.RootStateImpl = exports.Logger = void 0;
-const lodash_1 = __importDefault(require("lodash"));
 const history_1 = require("./history");
 const prop_1 = require("./prop");
 const StateBase_1 = require("./StateBase");
@@ -124,8 +120,9 @@ class RootStateImpl extends StateObject_1.stateObjectMixin() {
             // Only push args if it does not already exists.
             // console.log(args);
             // console.log(argsArray);
-            if (-1 === callInfo.findIndex(elt => lodash_1.default.isEqual(elt.args, args)))
-                callInfo.push({ object, args });
+            // too slow!
+            // if (-1 === callInfo.findIndex(elt => _.isEqual(elt.args, args)))
+            callInfo.push({ object, args });
         }
     }
 }

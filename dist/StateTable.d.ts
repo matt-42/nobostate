@@ -63,7 +63,7 @@ export declare function stateTableMixin<T extends HasId<any>>(): {
         _notifySubscribers<P extends IdType<T>>(propOrId: P, value: StateObject<T>): void;
         _notifyThisSubscribers(): void;
         _parentDispose: (() => void) | null;
-        _children: {
+        _children: Map<string, {
             _isStateBase: boolean;
             __removed__: boolean;
             _proxifiedThis: any | null;
@@ -98,10 +98,10 @@ export declare function stateTableMixin<T extends HasId<any>>(): {
             _notifySubscribers<P_2 extends IdType<T>>(propOrId: P_2, value: StateObject<T>): void;
             _notifyThisSubscribers(): void;
             _parentDispose: (() => void) | null;
-            _children: any[];
+            _children: Map<string, any>;
             _registerChild<P_3 extends IdType<T>>(propOrId: P_3, child: StateObject<T>): void;
             _traverse(fun: (node: any) => void): void;
-        }[];
+        }>;
         _registerChild<P_4 extends IdType<T>>(propOrId: P_4, child: StateObject<T>): void;
         _traverse(fun: (node: {
             _isStateBase: boolean;
@@ -138,7 +138,7 @@ export declare function stateTableMixin<T extends HasId<any>>(): {
             _notifySubscribers<P_2 extends IdType<T>>(propOrId: P_2, value: StateObject<T>): void;
             _notifyThisSubscribers(): void;
             _parentDispose: (() => void) | null;
-            _children: any[];
+            _children: Map<string, any>;
             _registerChild<P_3 extends IdType<T>>(propOrId: P_3, child: StateObject<T>): void;
             _traverse(fun: any): void;
         }) => void): void;

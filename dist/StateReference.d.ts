@@ -78,7 +78,7 @@ export declare function stateReferenceNotNullMixin<T extends HasId<any>>(): {
         }[P_1] : never): void;
         _notifyThisSubscribers(): void;
         _parentDispose: (() => void) | null;
-        _children: {
+        _children: Map<string, {
             _isStateBase: boolean;
             __removed__: boolean;
             _proxifiedThis: any | null;
@@ -137,12 +137,12 @@ export declare function stateReferenceNotNullMixin<T extends HasId<any>>(): {
             }[P_3] : never): void;
             _notifyThisSubscribers(): void;
             _parentDispose: (() => void) | null;
-            _children: any[];
+            _children: Map<string, any>;
             _registerChild<P_4 extends "__stateReference__">(propOrId: P_4, child: P_4 extends "__stateReference__" ? {
                 __stateReference__: T;
             }[P_4] : never): void;
             _traverse(fun: (node: any) => void): void;
-        }[];
+        }>;
         _registerChild<P_5 extends "__stateReference__">(propOrId: P_5, child: P_5 extends "__stateReference__" ? {
             __stateReference__: T;
         }[P_5] : never): void;
@@ -205,7 +205,7 @@ export declare function stateReferenceNotNullMixin<T extends HasId<any>>(): {
             }[P_3] : never): void;
             _notifyThisSubscribers(): void;
             _parentDispose: (() => void) | null;
-            _children: any[];
+            _children: Map<string, any>;
             _registerChild<P_4 extends "__stateReference__">(propOrId: P_4, child: P_4 extends "__stateReference__" ? {
                 __stateReference__: T;
             }[P_4] : never): void;

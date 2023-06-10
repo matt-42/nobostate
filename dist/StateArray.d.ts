@@ -35,7 +35,7 @@ declare const StateArray_base: {
         _notifySubscribers<P_1 extends never>(propOrId: P_1, value: P_1 extends never ? {}[P_1] : never): void;
         _notifyThisSubscribers(): void;
         _parentDispose: (() => void) | null;
-        _children: any[];
+        _children: Map<string, any>;
         _registerChild<P_2 extends never>(propOrId: P_2, child: P_2 extends never ? {}[P_2] : never): void;
         _traverse(fun: (node: any) => void): void;
     };

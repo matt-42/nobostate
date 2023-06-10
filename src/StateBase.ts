@@ -240,7 +240,8 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
     }
 
     _parentDispose = null as null | (() => void);
-    _children: StateBaseClass[] = [];
+    _children = new Map<string, StateBaseClass>();
+    //_children2 : StateBaseClass[] = [];
     _registerChild<P extends ThisKeys>(propOrId: P, child: ThisKeyAccessType<P>) {
       // console.log("1- push child for ");
 
@@ -261,10 +262,13 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
           [...childBase._removeListeners].forEach((f: any) => f(childBase));
         })
         // Add the child the the children array.
-        this._children.push(child as StateBaseClass);
+        this._children.set((propOrId as any).toString(), child as StateBaseClass);
+        //this._children2.push(child as StateBaseClass);
         // console.log("push child for ", propOrId);
         childBase._parentDispose = () => {
-          _.remove(this._children, c => c === child);
+          this._children.delete((propOrId as any).toString());
+          // console.log("dispose propId ", propOrId);
+          //_.remove(this._children2, c => c === child);
           disposeOnRemove();
         }
 
@@ -272,7 +276,7 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
     }
 
     _traverse(fun: (node: StateBaseClass) => void): void {
-      for (let child of this._children) {
+      for (let [propId, child] of this._children) {
         // if (k !== "_parent" && this[k] && (this[k] as any)._isStateBase && !(this[k] as any)._isStateReference)
         // {
         //   fun(this[k] as any);
@@ -341,7 +345,8 @@ export interface StateBaseInterface<T> {
   // notify subscribers and the parent.
   _notifySubscribers<P extends Keys<T>>(propOrId: P, value: KeyAccessType<T, P>): void;
 
-  _children: StateBaseInterface<any>[];
+  // _children: StateBaseInterface<any>[];
+  _children: Map<string, StateBaseInterface<any>>;
   _registerChild<P extends Keys<T>>(propOrId: P, child: KeyAccessType<T, P>): void;
 
   _traverse(fun: (node: StateBaseInterface<any>) => void): void;

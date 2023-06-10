@@ -67,27 +67,41 @@ export function updateState(dst: any, prop: any, src: any) {
         }
 
         else
+        {
           updateState(obj, k, src[k]);
+        }
       }
     }
     //
     // Table.
     //
     else if (toUpdate?._isStateTable) {
+      // console.time("load table setup");
+      // console.log("_____LOAD SETUP ____");
       let srcTable = (src as StateTable<any>)
       if (!srcTable._isStateTable)
         throw new Error("UpdateState type error when updating table.");
+      
       let newKeys = srcTable.map((e: any) => e.id);
       let idsToRemove = _.difference([...toUpdate.ids()], newKeys);
+      // console.log("_____LOAD REMOVE ____");
       for (let id of idsToRemove)
         toUpdate.remove(id);
+
+      // console.log("_____LOAD INSERT LOOP____");
+
+      // console.timeEnd("load table setup");
+      // console.time("load table loop");
       for (let elt of srcTable.values())
         if ((toUpdate as StateTable<any>).has(elt.id))
           updateState(toUpdate, elt.id, elt);
-
         else
+        {
+          // console.log("insert elt: ", (toUpdate as StateTable<any>)._path(), elt.id);
           toUpdate.insert(elt);
-      // throw new Error("not implemented");
+        }
+      // console.timeEnd("load table loop");
+        // throw new Error("not implemented");
     }
     //
     // Object props.

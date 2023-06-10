@@ -143,7 +143,9 @@ export class RootStateImpl<T> extends stateObjectMixin<{}>() {
       // Only push args if it does not already exists.
       // console.log(args);
       // console.log(argsArray);
-      if (-1 === callInfo.findIndex(elt => _.isEqual(elt.args, args)))
+
+      // too slow!
+      // if (-1 === callInfo.findIndex(elt => _.isEqual(elt.args, args)))
         callInfo.push({ object, args });
     }
 

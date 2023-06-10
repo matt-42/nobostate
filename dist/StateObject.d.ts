@@ -42,7 +42,7 @@ export declare function stateObjectMixin<T>(): {
         _notifySubscribers<P_1 extends import("./StateBase").Keys<T>>(propOrId: P_1, value: import("./StateBase").KeyAccessType<T, P_1>): void;
         _notifyThisSubscribers(): void;
         _parentDispose: (() => void) | null;
-        _children: {
+        _children: Map<string, {
             _isStateBase: boolean;
             __removed__: boolean;
             _proxifiedThis: any | null;
@@ -75,10 +75,10 @@ export declare function stateObjectMixin<T>(): {
             _notifySubscribers<P_3 extends import("./StateBase").Keys<T>>(propOrId: P_3, value: import("./StateBase").KeyAccessType<T, P_3>): void;
             _notifyThisSubscribers(): void;
             _parentDispose: (() => void) | null;
-            _children: any[];
+            _children: Map<string, any>;
             _registerChild<P_4 extends import("./StateBase").Keys<T>>(propOrId: P_4, child: import("./StateBase").KeyAccessType<T, P_4>): void;
             _traverse(fun: (node: any) => void): void;
-        }[];
+        }>;
         _registerChild<P_5 extends import("./StateBase").Keys<T>>(propOrId: P_5, child: import("./StateBase").KeyAccessType<T, P_5>): void;
         _traverse(fun: (node: {
             _isStateBase: boolean;
@@ -113,7 +113,7 @@ export declare function stateObjectMixin<T>(): {
             _notifySubscribers<P_3 extends import("./StateBase").Keys<T>>(propOrId: P_3, value: import("./StateBase").KeyAccessType<T, P_3>): void;
             _notifyThisSubscribers(): void;
             _parentDispose: (() => void) | null;
-            _children: any[];
+            _children: Map<string, any>;
             _registerChild<P_4 extends import("./StateBase").Keys<T>>(propOrId: P_4, child: import("./StateBase").KeyAccessType<T, P_4>): void;
             _traverse(fun: any): void;
         }) => void): void;
@@ -207,7 +207,7 @@ declare const AnyStateObject_base: {
         _notifySubscribers<P_1 extends never>(propOrId: P_1, value: P_1 extends never ? {}[P_1] : never): void;
         _notifyThisSubscribers(): void;
         _parentDispose: (() => void) | null;
-        _children: {
+        _children: Map<string, {
             _isStateBase: boolean;
             __removed__: boolean;
             _proxifiedThis: any | null;
@@ -240,10 +240,10 @@ declare const AnyStateObject_base: {
             _notifySubscribers<P_3 extends never>(propOrId: P_3, value: P_3 extends never ? {}[P_3] : never): void;
             _notifyThisSubscribers(): void;
             _parentDispose: (() => void) | null;
-            _children: any[];
+            _children: Map<string, any>;
             _registerChild<P_4 extends never>(propOrId: P_4, child: P_4 extends never ? {}[P_4] : never): void;
             _traverse(fun: (node: any) => void): void;
-        }[];
+        }>;
         _registerChild<P_5 extends never>(propOrId: P_5, child: P_5 extends never ? {}[P_5] : never): void;
         _traverse(fun: (node: {
             _isStateBase: boolean;
@@ -278,7 +278,7 @@ declare const AnyStateObject_base: {
             _notifySubscribers<P_3 extends never>(propOrId: P_3, value: P_3 extends never ? {}[P_3] : never): void;
             _notifyThisSubscribers(): void;
             _parentDispose: (() => void) | null;
-            _children: any[];
+            _children: Map<string, any>;
             _registerChild<P_4 extends never>(propOrId: P_4, child: P_4 extends never ? {}[P_4] : never): void;
             _traverse(fun: any): void;
         }) => void): void;

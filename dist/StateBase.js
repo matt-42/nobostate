@@ -43,7 +43,7 @@ function stateBaseMixin(wrapped) {
             this._beforeRemoveListeners = [];
             this._dummyHistory = new history_1.DummyHistory();
             this._parentDispose = null;
-            this._children = [];
+            this._children = new Map();
         }
         _onChange(listener) {
             this._thisSubscribers.push(listener);
@@ -178,6 +178,7 @@ function stateBaseMixin(wrapped) {
             this._runNotification(this._thisSubscribers, this, null);
             this._runNotification(this); // runs this.parentListener. 
         }
+        //_children2 : StateBaseClass[] = [];
         _registerChild(propOrId, child) {
             // console.log("1- push child for ");
             var _a;
@@ -196,16 +197,19 @@ function stateBaseMixin(wrapped) {
                     [...childBase._removeListeners].forEach((f) => f(childBase));
                 });
                 // Add the child the the children array.
-                this._children.push(child);
+                this._children.set(propOrId.toString(), child);
+                //this._children2.push(child as StateBaseClass);
                 // console.log("push child for ", propOrId);
                 childBase._parentDispose = () => {
-                    lodash_1.default.remove(this._children, c => c === child);
+                    this._children.delete(propOrId.toString());
+                    // console.log("dispose propId ", propOrId);
+                    //_.remove(this._children2, c => c === child);
                     disposeOnRemove();
                 };
             }
         }
         _traverse(fun) {
-            for (let child of this._children) {
+            for (let [propId, child] of this._children) {
                 // if (k !== "_parent" && this[k] && (this[k] as any)._isStateBase && !(this[k] as any)._isStateReference)
                 // {
                 //   fun(this[k] as any);
