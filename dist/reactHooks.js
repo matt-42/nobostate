@@ -195,7 +195,7 @@ function flushRefreshQueue() {
             continue;
         // for (let elt of refreshQueue) {
         if (elt[0].current) {
-            console.log(`====  FLUSH REFRESH QUEUE : ${elt[2]} =====`);
+            //console.log(`====  FLUSH REFRESH QUEUE : ${elt[2]} =====`);
             elt[1]();
         }
         else {
