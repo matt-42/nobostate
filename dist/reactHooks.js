@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.debouncedObserver = exports.observer = exports.useNoboObserver = exports.useNoboIds = exports.useNoboMapSelector = exports.useNoboRefKey = exports.useNoboRef = exports.useNoboSelector = exports.useNoboKeys = exports.useNoboKey = exports.useNoboStateImpl = exports.useRefreshThisComponent = exports.useMounted = exports.useNoboState = void 0;
+exports.debouncedObserver = exports.observer = exports.useNoboObserver = exports.triggerRefreshDebouncedObserver = exports.flushRefreshQueue = exports.nobostateComponentRefreshQueue = exports.useNoboIds = exports.useNoboMapSelector = exports.useNoboRefKey = exports.useNoboRef = exports.useNoboSelector = exports.useNoboKeys = exports.useNoboKey = exports.useNoboStateImpl = exports.useRefreshThisComponent = exports.useMounted = exports.useNoboState = void 0;
 const lodash_1 = __importDefault(require("lodash"));
 const react_1 = require("react");
 const autorun_1 = require("./autorun");
@@ -181,16 +181,16 @@ function useNoboIds(table) {
     // return this._useSelector(table => [...table.keys()]); 
 }
 exports.useNoboIds = useNoboIds;
-const refreshQueue = [];
+exports.nobostateComponentRefreshQueue = [];
 let refreshTimeout = null;
 function flushRefreshQueue() {
     // console.log("==== FLUSH REFRESH QUEUE =====", refreshQueue.length);
-    if (refreshQueue.length === 0)
+    if (exports.nobostateComponentRefreshQueue.length === 0)
         return;
     // console.log("==== FLUSH REFRESH QUEUE =====");
     refreshTimeout = null;
-    while (refreshQueue.length) {
-        const elt = refreshQueue.shift();
+    while (exports.nobostateComponentRefreshQueue.length) {
+        const elt = exports.nobostateComponentRefreshQueue.shift();
         if (!elt)
             continue;
         // for (let elt of refreshQueue) {
@@ -202,7 +202,7 @@ function flushRefreshQueue() {
             // console.log(`====  FLUSH REFRESH QUEUE : skip ${elt[2]} =====`);
         }
     }
-    refreshQueue.length = 0;
+    exports.nobostateComponentRefreshQueue.length = 0;
     // console.log("==== END OF FLUSH REFRESH QUEUE =====");
     // const elt = refreshQueue.shift();
     // if (!elt) return;
@@ -216,10 +216,12 @@ function flushRefreshQueue() {
     // }
     // refreshTimeout = setTimeout(flushRefreshQueue, 10);
 }
-function triggerRefresh() {
+exports.flushRefreshQueue = flushRefreshQueue;
+function triggerRefreshDebouncedObserver() {
     if (refreshTimeout === null)
         refreshTimeout = setTimeout(flushRefreshQueue, 300);
 }
+exports.triggerRefreshDebouncedObserver = triggerRefreshDebouncedObserver;
 function useNoboObserver(f, name) {
     const valueAtLastRender = react_1.useRef();
     const [state, setState] = react_1.useState(f());
@@ -233,10 +235,10 @@ function useNoboObserver(f, name) {
             const newVal = f();
             if (!lodash_1.default.isEqual(newVal, valueAtLastRender.current)) {
                 dirty.current = true;
-                refreshQueue.push([dirty, () => {
+                exports.nobostateComponentRefreshQueue.push([dirty, () => {
                         return setState(newVal);
                     }, name || "unknown"]);
-                triggerRefresh();
+                triggerRefreshDebouncedObserver();
             }
         });
     }, []);
@@ -281,9 +283,9 @@ function debouncedObserver(component, name, waitMs) {
         const reaction = react_1.useMemo(() => new autorun_1.Reaction(() => {
             // console.log("Observer::refresh ", name);
             // refresh(); 
-            refreshQueue.push([dirty, refresh, name || component.name]);
+            exports.nobostateComponentRefreshQueue.push([dirty, refresh, name || component.name]);
             dirty.current = true;
-            triggerRefresh();
+            triggerRefreshDebouncedObserver();
         }), [dirty]);
         react_1.useEffect(() => () => reaction.dispose(), []);
         // console.log("Observer::render ", name, firstCall);

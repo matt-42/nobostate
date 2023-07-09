@@ -259,18 +259,18 @@ export function useNoboIds<T extends HasId<any>>(table: StateTable<T>) {
   // return this._useSelector(table => [...table.keys()]); 
 }
 
-const refreshQueue : ([React.RefObject<boolean>,  ()=>void, string])[] = [];
+export const nobostateComponentRefreshQueue : ([React.RefObject<boolean>,  ()=>void, string])[] = [];
 let refreshTimeout : NodeJS.Timeout | null = null;
 
-function flushRefreshQueue() {
+export function flushRefreshQueue() {
   // console.log("==== FLUSH REFRESH QUEUE =====", refreshQueue.length);
-  if (refreshQueue.length === 0) return;
+  if (nobostateComponentRefreshQueue.length === 0) return;
 
   // console.log("==== FLUSH REFRESH QUEUE =====");
   refreshTimeout = null;
 
-  while (refreshQueue.length) {
-    const elt = refreshQueue.shift();
+  while (nobostateComponentRefreshQueue.length) {
+    const elt = nobostateComponentRefreshQueue.shift();
     if (!elt) continue;
   // for (let elt of refreshQueue) {
     if (elt[0].current) 
@@ -283,7 +283,7 @@ function flushRefreshQueue() {
     }
 
   }
-  refreshQueue.length = 0;
+  nobostateComponentRefreshQueue.length = 0;
   // console.log("==== END OF FLUSH REFRESH QUEUE =====");
 
   // const elt = refreshQueue.shift();
@@ -300,7 +300,7 @@ function flushRefreshQueue() {
 
 }
 
-function triggerRefresh() {
+export function triggerRefreshDebouncedObserver() {
   if (refreshTimeout === null)
    refreshTimeout = setTimeout(flushRefreshQueue, 300);
 }
@@ -324,10 +324,10 @@ export function useNoboObserver<R>(f : () => R, name? : string) {
       if (!_.isEqual(newVal, valueAtLastRender.current))
       {
         dirty.current = true;
-        refreshQueue.push([dirty, () => {
+        nobostateComponentRefreshQueue.push([dirty, () => {
           return setState(newVal);     
         }, name || "unknown"]);
-        triggerRefresh();
+        triggerRefreshDebouncedObserver();
       }
     });
   }, []);
@@ -381,9 +381,9 @@ export function debouncedObserver<P>(component : React.FunctionComponent<P>, nam
     const reaction = useMemo(() => new Reaction(() => {
       // console.log("Observer::refresh ", name);
       // refresh(); 
-      refreshQueue.push([dirty, refresh, name || component.name]);
+      nobostateComponentRefreshQueue.push([dirty, refresh, name || component.name]);
       dirty.current = true;
-      triggerRefresh();
+      triggerRefreshDebouncedObserver();
     }), [dirty]);
 
     useEffect(() => () => reaction.dispose(), []);
