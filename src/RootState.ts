@@ -4,35 +4,15 @@ import { propagatePropIds, PropSpec } from "./prop";
 import { callListeners, StateBaseInterface } from "./StateBase";
 import { StateObject, stateObjectMixin } from "./StateObject";
 import { StateReferenceNotNull } from "./StateReference";
-import { revive, reviveReferences } from "./unwrap_revive";
-import { updateState } from "./updateState";
-
-
-export class Logger {
-
-  groupEnd() {
-    console.groupEnd();
-  }
-
-  log(message: any) {
-    console.log(message);
-  }
-
-  groupLog(message: any) {
-    console.group(message);
-  }
-}
-
+import { revive, revive2, reviveReferences } from "./unwrap_revive";
+import { ignoreNotifications } from "./ignoreNotifications";
 
 export class RootStateImpl<T> extends stateObjectMixin<{}>() {
 
   _history = new NoboHistory(this);
-  _loggerObject: Logger | null = null;
-
-  constructor(obj: any, options?: { log: boolean }) {
+  _isRootState = true;
+  constructor(obj: any, options?: {}) {
     super(obj);
-    if (options?.log)
-      this._loggerObject = new Logger();
   }
 
   _checkReferencesNotNull(skipLog = false) : boolean {
@@ -52,21 +32,26 @@ export class RootStateImpl<T> extends stateObjectMixin<{}>() {
   }
 
   _load(data: any) {
-    this._transaction(() => {
-      this._history.ignore(() => {
-        let loadedState = revive(data);
+    try {
+      ignoreNotifications.current = true;
+      this._transaction(() => {
+        this._history.ignore(() => {
 
-        for (let k in loadedState)
-          if (!k.startsWith("_"))
-            updateState(this, k, loadedState[k]);
-
-        reviveReferences(this, data);
-
+          for (let k in data._stateObject)
+          {
+            if (!k.startsWith("_"))
+             revive2(data._stateObject[k], this, k);
+          }
+          
+          reviveReferences(this, data);
+          
+        });
       });
-    });
-    if (!this._checkReferencesNotNull()) {
-      throw new Error("Error, found at least one non null reference in the model");
+      if (!this._checkReferencesNotNull()) {
+        throw new Error("Error, found at least one non null reference in the model");
+      }
     }
+    finally { ignoreNotifications.current = false; }
   }
 
   _inTransaction: boolean = false;

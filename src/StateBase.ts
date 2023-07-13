@@ -1,9 +1,9 @@
 import _ from "lodash";
-import { autorunIgnore } from "./autorun";
-import { DummyHistory, NoboHistory } from "./history";
+import { NoboHistory } from "./history";
 import { PropSpec, StatePropIdentifiers } from "./prop";
 import { RootState } from "./RootState";
-// import { updateState } from "./updateState";
+import { ignoreNotifications } from "./ignoreNotifications";
+import { _globalLogger } from "./log";
 
 export function callListeners(
   listeners: StateBaseInterface<any> | ((...args: any[]) => void)[],
@@ -109,23 +109,23 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
       this._props = props as any;
     }
 
-    _dummyHistory = new DummyHistory();
-    _getRootStateHistory(): NoboHistory | DummyHistory {
-      const h = this._getRootState()._history;
-
-      if (h) return h;
-
-      return this._dummyHistory;
+    _getRootStateHistory(): NoboHistory | null {
+      return this._getRootState()._history || null;
     }
 
+    _rootStateCache :  RootState<unknown> | null = null;
     _getRootState(): RootState<unknown> {
+      if (this._rootStateCache) return this._rootStateCache;
+      
       let it = this;
       while (it._parent)
         it = it._parent;
       if (!it)
         throw new Error();
-      // if (!(it as any)._history)
-      // throw new Error('Root state has no _history field.');
+
+      if ((it as any)._isRootState)
+        this._rootStateCache = it as any as RootState<unknown>;
+
       return it as any as RootState<unknown>;
     }
 
@@ -139,7 +139,7 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
     }
 
     _logger() {
-      return this._getRootState()?._loggerObject;
+      return _globalLogger;
     }
 
     _subscribeSelector<R>(selector: (t: this) => R, compute: (selected: R) => void, initCall = false): void {
@@ -211,6 +211,8 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
     _runNotification(listeners: this | ((...args: any[]) => void)[],
       ...args: any[]) {
 
+      if (ignoreNotifications.current) return;
+
       if (!(this as any).__beingRemoved__ && !(this as any).__removed__) {
         let root = this._getRootState();
         if (root._notification)
@@ -224,6 +226,8 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
     // notify subscribers and the parent.
     _notifySubscribers<P extends ThisKeys>(propOrId: P, value: ThisKeyAccessType<P>) {
 
+      if (ignoreNotifications.current) return;
+
       this._subscribers[propOrId as string] ||= [];
       this._runNotification(this._subscribers[propOrId as string], this._get(propOrId), propOrId);
       this._runNotification(this._thisSubscribers, this, propOrId);
@@ -234,13 +238,20 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
 
     }
     _notifyThisSubscribers() {
+      if (ignoreNotifications.current) return;
+
       // [...this._thisSubscribers].forEach(sub => this._runNotification(sub, this, null as any));
       this._runNotification(this._thisSubscribers, this, null as any);
       this._runNotification(this); // runs this.parentListener. 
     }
 
     _parentDispose = null as null | (() => void);
-    _children = new Map<string, StateBaseClass>();
+    _childrenMap : Map<string, StateBaseClass> | null = null;
+    _children() {
+      if (!this._childrenMap)
+        this._childrenMap = new Map<string, StateBaseClass>();
+      return this._childrenMap;
+    }
     //_children2 : StateBaseClass[] = [];
     _registerChild<P extends ThisKeys>(propOrId: P, child: ThisKeyAccessType<P>) {
       // console.log("1- push child for ");
@@ -262,11 +273,11 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
           [...childBase._removeListeners].forEach((f: any) => f(childBase));
         })
         // Add the child the the children array.
-        this._children.set((propOrId as any).toString(), child as StateBaseClass);
+        this._children().set((propOrId as any).toString(), child as StateBaseClass);
         //this._children2.push(child as StateBaseClass);
         // console.log("push child for ", propOrId);
         childBase._parentDispose = () => {
-          this._children.delete((propOrId as any).toString());
+          this._children().delete((propOrId as any).toString());
           // console.log("dispose propId ", propOrId);
           //_.remove(this._children2, c => c === child);
           disposeOnRemove();
@@ -276,7 +287,7 @@ export function stateBaseMixin<T, Ctor extends Constructor>(wrapped: Ctor) {
     }
 
     _traverse(fun: (node: StateBaseClass) => void): void {
-      for (let [propId, child] of this._children) {
+      for (let [propId, child] of this._children()) {
         // if (k !== "_parent" && this[k] && (this[k] as any)._isStateBase && !(this[k] as any)._isStateReference)
         // {
         //   fun(this[k] as any);
@@ -346,7 +357,7 @@ export interface StateBaseInterface<T> {
   _notifySubscribers<P extends Keys<T>>(propOrId: P, value: KeyAccessType<T, P>): void;
 
   // _children: StateBaseInterface<any>[];
-  _children: Map<string, StateBaseInterface<any>>;
+  _children() : Map<string, StateBaseInterface<any>>;
   _registerChild<P extends Keys<T>>(propOrId: P, child: KeyAccessType<T, P>): void;
 
   _traverse(fun: (node: StateBaseInterface<any>) => void): void;
