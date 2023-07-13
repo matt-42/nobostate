@@ -34,10 +34,6 @@ class RootStateImpl extends StateObject_1.stateObjectMixin() {
             ignoreNotifications_1.ignoreNotifications.current = true;
             this._transaction(() => {
                 this._history.ignore(() => {
-                    // let loadedState = revive(data);
-                    // for (let k in loadedState)
-                    //   if (!k.startsWith("_"))
-                    //     updateState(this, k, loadedState[k]);
                     for (let k in data._stateObject) {
                         if (!k.startsWith("_"))
                             unwrap_revive_1.revive2(data._stateObject[k], this, k);
@@ -52,10 +48,6 @@ class RootStateImpl extends StateObject_1.stateObjectMixin() {
         finally {
             ignoreNotifications_1.ignoreNotifications.current = false;
         }
-    }
-    _fastLoadRec(data) {
-    }
-    _fastLoad(data) {
     }
     _beginTransaction() {
         this._inTransaction = true;

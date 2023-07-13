@@ -213,8 +213,6 @@ export declare class RootStateImpl<T> extends RootStateImpl_base {
     constructor(obj: any, options?: {});
     _checkReferencesNotNull(skipLog?: boolean): boolean;
     _load(data: any): void;
-    _fastLoadRec(data: any): void;
-    _fastLoad(data: any): void;
     _inTransaction: boolean;
     _transactionCompleteListeners: Map<StateBaseInterface<any> | ((...args: any[]) => void)[], {
         object: any;

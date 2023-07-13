@@ -156,7 +156,6 @@ function stateBaseMixin(wrapped) {
                 return;
             if (!this.__beingRemoved__ && !this.__removed__) {
                 let root = this._getRootState();
-                // if (root._ignoreNotifications) return;
                 if (root._notification)
                     root._notification(this, listeners, ...args);
                 else
@@ -166,10 +165,7 @@ function stateBaseMixin(wrapped) {
         // A prop has been updated.
         // notify subscribers and the parent.
         _notifySubscribers(propOrId, value) {
-            // console.log("notify");
             var _a, _b;
-            // this._subscribers[propOrId as string] ||= [];
-            // return;
             if (ignoreNotifications_1.ignoreNotifications.current)
                 return;
             (_a = this._subscribers)[_b = propOrId] || (_a[_b] = []);
