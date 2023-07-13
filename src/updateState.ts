@@ -113,6 +113,7 @@ export function updateState(dst: any, prop: any, src: any) {
 
       // console.log("UPDATE STATE: ", prop, "to", src);
 
+
       dst._logger()?.groupLog(`Update ${dst._path()}/${prop} to:  `);
       dst._logger()?.log(src);
 
@@ -122,7 +123,6 @@ export function updateState(dst: any, prop: any, src: any) {
       // if src is a instance of StateBase, register it as a child
       // and propagate props.
       if (prev === undefined && src?._isStateBase) {
-        // console.log("register child ", prop, dst._registerChild);
         dst._registerChild(prop, src);
         if (dst._props)
           propagatePropIds(src, dst._props[prop]);

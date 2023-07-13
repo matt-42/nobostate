@@ -236,7 +236,7 @@ export class StateObjectArray<T> extends StateArray<T>
   push(...elements: T[]): number {
     elements.forEach(value => {
 
-      let elt = stateObject<T>(value);
+      let elt = (value as any)._isStateObject ? value : stateObject<T>(value);
       super.push(elt);
       this._registerChild(this.length - 1 as never, elt as never);
       propagatePropIds(elt, this._props);

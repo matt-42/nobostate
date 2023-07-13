@@ -260,32 +260,3 @@ export class NoboHistory {
   }
 
 }
-
-// Fake History, just execute everything without remembering anything.
-export class DummyHistory {
-
-  startGroup(groupId: string | null = null) {}
-
-  endGroup() {}
-
-  ignore<R>(f: () => R): R {
-    return  f();
-  }
-
-  async asyncIgnore<R>(f: () => Promise<R>): Promise<R> {
-    return f();
-  }
-  group<R>(f: () => R): R;
-  group<R>(groupId: string, f: () => R): R;
-  group<R>(groupId_: string | (() => R), f_?: () => R): R {
-
-    let f = f_ || groupId_ as () => R;
-    let groupId = f_ ? (groupId_ as string) : null;
-
-    return f();
-  }
-
-  push(item: HistoryAction) {}
-  redo() {}
-  goto(index: number) {}
-};

@@ -154,7 +154,9 @@ export function stateTableMixin<T extends HasId<any>>() {
           propagatePropIds(elt, this._props);
 
           this._lastInsertId = id;
+          
           this._notifySubscribers(id, elt);
+          
           // console.log(this._getRootState());
           // console.log(this._getRootState()._history);
           if (this._insertListeners.length) {
@@ -184,7 +186,7 @@ export function stateTableMixin<T extends HasId<any>>() {
         //   this._logger()?.log(`stateObject with id ${value.id}`);
         this._logger()?.log(value);
 
-        let res = this._getRootStateHistory().group(insert_code);
+        let res = this._getRootStateHistory()?.group(insert_code) || insert_code();
 
         this._logger()?.groupEnd();
         return res;
@@ -215,7 +217,7 @@ export function stateTableMixin<T extends HasId<any>>() {
       return bind as StateObject<T>;
     }
 
-    set(id: Id, value: StateObject<T>): this {
+    set(id: Id, value: StateObject<T>) {
       // if (!this.has(id))
       //   return this.insert(value as any as T);
       // else
@@ -233,7 +235,7 @@ export function stateTableMixin<T extends HasId<any>>() {
       return this.assertGet(id);
     }
 
-    _set(id: Id, val: StateObject<T>): this {
+    _set(id: Id, val: StateObject<T>) {
       if (this.has(id))
         updateState(this, id, val);
       else
@@ -355,13 +357,13 @@ export interface StateTableInterface<T> extends StateBaseInterface<Map<IdType<T>
   insert(elt: T | StateObject<T>): StateObject<T>;
 
   clone(id: IdType<T>, newId?: IdType<T>): StateObject<T>;
-  set(id: IdType<T>, value: StateObject<T>): this;
+  set(id: IdType<T>, value: StateObject<T>): StateTableInterface<T>;
 
   assertGet(id: IdType<T>): StateObject<T>;
 
   _get(id: IdType<T>): StateObject<T>;
 
-  _set(id: IdType<T>, val: StateObject<T>): this;
+  _set(id: IdType<T>, val: StateObject<T>): StateTableInterface<T>;
 
   remove(id: IdType<T>): void;
   onKeyDelete(listener: () => void): () => void;

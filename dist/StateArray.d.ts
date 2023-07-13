@@ -20,11 +20,11 @@ declare const StateArray_base: {
         _beforeRemoveListeners: ((o: {}) => void)[];
         _onBeforeRemove(listener: (o: {}) => void): () => void;
         _setProps(props: import("./prop").PropSpec): void;
-        _dummyHistory: import("./history").DummyHistory;
-        _getRootStateHistory(): import("./history").NoboHistory | import("./history").DummyHistory;
+        _getRootStateHistory(): import("./history").NoboHistory | null;
+        _rootStateCache: import("./RootState").RootState<unknown> | null;
         _getRootState(): import("./RootState").RootState<unknown>;
         _rootStateAccess(path: string[]): any;
-        _logger(): import("./RootState").Logger | null;
+        _logger(): import("./log").Logger | null;
         _subscribeSelector<R>(selector: (t: any) => R, compute: (selected: R) => void, initCall?: boolean): void;
         _subscribe(listener: (value: any, updatedKey: never) => void, initCall?: boolean): () => void;
         _subscribeKey<K extends never>(key: K, listener: (value: K extends never ? {}[K] : never, updatedKey: never) => void, initCall?: boolean): () => void;
@@ -35,7 +35,8 @@ declare const StateArray_base: {
         _notifySubscribers<P_1 extends never>(propOrId: P_1, value: P_1 extends never ? {}[P_1] : never): void;
         _notifyThisSubscribers(): void;
         _parentDispose: (() => void) | null;
-        _children: Map<string, any>;
+        _childrenMap: Map<string, any> | null;
+        _children(): Map<string, any>;
         _registerChild<P_2 extends never>(propOrId: P_2, child: P_2 extends never ? {}[P_2] : never): void;
         _traverse(fun: (node: any) => void): void;
     };

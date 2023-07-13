@@ -56,7 +56,7 @@ test("check-not-null-references", () => {
 
   expect(state._checkReferencesNotNull()).toBe(true);
   
-  expect(t2._children.includes(t2.ref as any)).toBeTruthy();
+  expect([...t2._children().values()].includes(t2.ref as any)).toBeTruthy();
 
   (t2.ref as any)._ref = null;
 

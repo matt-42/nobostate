@@ -2,11 +2,6 @@ import { NoboHistory } from "./history";
 import { PropSpec } from "./prop";
 import { StateBaseInterface } from "./StateBase";
 import { StateObject } from "./StateObject";
-export declare class Logger {
-    groupEnd(): void;
-    log(message: any): void;
-    groupLog(message: any): void;
-}
 declare const RootStateImpl_base: {
     new (src: {}): {
         _isStateObject: boolean;
@@ -34,11 +29,11 @@ declare const RootStateImpl_base: {
         _beforeRemoveListeners: ((o: {}) => void)[];
         _onBeforeRemove(listener: (o: {}) => void): () => void;
         _setProps(props: PropSpec): void;
-        _dummyHistory: import("./history").DummyHistory;
-        _getRootStateHistory(): NoboHistory | import("./history").DummyHistory;
+        _getRootStateHistory(): NoboHistory | null;
+        _rootStateCache: RootState<unknown> | null;
         _getRootState(): RootState<unknown>;
         _rootStateAccess(path: string[]): any;
-        _logger(): Logger | null;
+        _logger(): import("./log").Logger | null;
         _subscribeSelector<R>(selector: (t: any) => R, compute: (selected: R) => void, initCall?: boolean): void;
         _subscribe(listener: (value: any, updatedKey: never) => void, initCall?: boolean): () => void;
         _subscribeKey<K_1 extends never>(key: K_1, listener: (value: K_1 extends never ? {}[K_1] : never, updatedKey: never) => void, initCall?: boolean): () => void;
@@ -49,7 +44,7 @@ declare const RootStateImpl_base: {
         _notifySubscribers<P_1 extends never>(propOrId: P_1, value: P_1 extends never ? {}[P_1] : never): void;
         _notifyThisSubscribers(): void;
         _parentDispose: (() => void) | null;
-        _children: Map<string, {
+        _childrenMap: Map<string, {
             _isStateBase: boolean;
             __removed__: boolean;
             _proxifiedThis: any | null;
@@ -67,11 +62,11 @@ declare const RootStateImpl_base: {
             _beforeRemoveListeners: ((o: {}) => void)[];
             _onBeforeRemove(listener: (o: {}) => void): () => void;
             _setProps(props: PropSpec): void;
-            _dummyHistory: import("./history").DummyHistory;
-            _getRootStateHistory(): NoboHistory | import("./history").DummyHistory;
+            _getRootStateHistory(): NoboHistory | null;
+            _rootStateCache: RootState<unknown> | null;
             _getRootState(): RootState<unknown>;
             _rootStateAccess(path: string[]): any;
-            _logger(): Logger | null;
+            _logger(): import("./log").Logger | null;
             _subscribeSelector<R_1>(selector: (t: any) => R_1, compute: (selected: R_1) => void, initCall?: boolean): void;
             _subscribe(listener: (value: any, updatedKey: never) => void, initCall?: boolean): () => void;
             _subscribeKey<K_2 extends never>(key: K_2, listener: (value: K_2 extends never ? {}[K_2] : never, updatedKey: never) => void, initCall?: boolean): () => void;
@@ -82,7 +77,46 @@ declare const RootStateImpl_base: {
             _notifySubscribers<P_3 extends never>(propOrId: P_3, value: P_3 extends never ? {}[P_3] : never): void;
             _notifyThisSubscribers(): void;
             _parentDispose: (() => void) | null;
-            _children: Map<string, any>;
+            _childrenMap: Map<string, any> | null;
+            _children(): Map<string, any>;
+            _registerChild<P_4 extends never>(propOrId: P_4, child: P_4 extends never ? {}[P_4] : never): void;
+            _traverse(fun: (node: any) => void): void;
+        }> | null;
+        _children(): Map<string, {
+            _isStateBase: boolean;
+            __removed__: boolean;
+            _proxifiedThis: any | null;
+            _parent: any;
+            _props: PropSpec & {};
+            _subscribers: {
+                [K: string]: ((value: any, key: never) => void)[];
+            };
+            _thisSubscribers: ((value: any, key: never) => void)[];
+            _parentListener: (() => void) | null;
+            _onChange(listener: (value: any, key: never) => void): () => void;
+            _removeListeners: ((o: {}) => void)[];
+            _onRemove(listener: (o: {}) => void): () => ((o: {}) => void)[];
+            _onRemoveInternal(listener: (o: {}) => void): () => ((o: {}) => void)[];
+            _beforeRemoveListeners: ((o: {}) => void)[];
+            _onBeforeRemove(listener: (o: {}) => void): () => void;
+            _setProps(props: PropSpec): void;
+            _getRootStateHistory(): NoboHistory | null;
+            _rootStateCache: RootState<unknown> | null;
+            _getRootState(): RootState<unknown>;
+            _rootStateAccess(path: string[]): any;
+            _logger(): import("./log").Logger | null;
+            _subscribeSelector<R_1>(selector: (t: any) => R_1, compute: (selected: R_1) => void, initCall?: boolean): void;
+            _subscribe(listener: (value: any, updatedKey: never) => void, initCall?: boolean): () => void;
+            _subscribeKey<K_2 extends never>(key: K_2, listener: (value: K_2 extends never ? {}[K_2] : never, updatedKey: never) => void, initCall?: boolean): () => void;
+            _path(): string;
+            _subscribeKeys(keys: never[], listener: (value: any, updatedKey: never) => void, initCall?: boolean): () => void;
+            _get<P_2 extends never>(prop: P_2): P_2 extends never ? {}[P_2] : never;
+            _runNotification(listeners: any | ((...args: any[]) => void)[], ...args: any[]): void;
+            _notifySubscribers<P_3 extends never>(propOrId: P_3, value: P_3 extends never ? {}[P_3] : never): void;
+            _notifyThisSubscribers(): void;
+            _parentDispose: (() => void) | null;
+            _childrenMap: Map<string, any> | null;
+            _children(): Map<string, any>;
             _registerChild<P_4 extends never>(propOrId: P_4, child: P_4 extends never ? {}[P_4] : never): void;
             _traverse(fun: (node: any) => void): void;
         }>;
@@ -105,11 +139,11 @@ declare const RootStateImpl_base: {
             _beforeRemoveListeners: ((o: {}) => void)[];
             _onBeforeRemove(listener: (o: {}) => void): () => void;
             _setProps(props: PropSpec): void;
-            _dummyHistory: import("./history").DummyHistory;
-            _getRootStateHistory(): NoboHistory | import("./history").DummyHistory;
+            _getRootStateHistory(): NoboHistory | null;
+            _rootStateCache: RootState<unknown> | null;
             _getRootState(): RootState<unknown>;
             _rootStateAccess(path: string[]): any;
-            _logger(): Logger | null;
+            _logger(): import("./log").Logger | null;
             _subscribeSelector<R_1>(selector: (t: any) => R_1, compute: (selected: R_1) => void, initCall?: boolean): void;
             _subscribe(listener: (value: any, updatedKey: never) => void, initCall?: boolean): () => void;
             _subscribeKey<K_2 extends never>(key: K_2, listener: (value: K_2 extends never ? {}[K_2] : never, updatedKey: never) => void, initCall?: boolean): () => void;
@@ -120,7 +154,8 @@ declare const RootStateImpl_base: {
             _notifySubscribers<P_3 extends never>(propOrId: P_3, value: P_3 extends never ? {}[P_3] : never): void;
             _notifyThisSubscribers(): void;
             _parentDispose: (() => void) | null;
-            _children: Map<string, any>;
+            _childrenMap: Map<string, any> | null;
+            _children(): Map<string, any>;
             _registerChild<P_4 extends never>(propOrId: P_4, child: P_4 extends never ? {}[P_4] : never): void;
             _traverse(fun: any): void;
         }) => void): void;
@@ -174,12 +209,12 @@ declare const RootStateImpl_base: {
 };
 export declare class RootStateImpl<T> extends RootStateImpl_base {
     _history: NoboHistory;
-    _loggerObject: Logger | null;
-    constructor(obj: any, options?: {
-        log: boolean;
-    });
+    _isRootState: boolean;
+    constructor(obj: any, options?: {});
     _checkReferencesNotNull(skipLog?: boolean): boolean;
     _load(data: any): void;
+    _fastLoadRec(data: any): void;
+    _fastLoad(data: any): void;
     _inTransaction: boolean;
     _transactionCompleteListeners: Map<StateBaseInterface<any> | ((...args: any[]) => void)[], {
         object: any;

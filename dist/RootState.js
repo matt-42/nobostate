@@ -1,33 +1,19 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.makeRootState = exports.RootStateImpl = exports.Logger = void 0;
+exports.makeRootState = exports.RootStateImpl = void 0;
 const history_1 = require("./history");
 const prop_1 = require("./prop");
 const StateBase_1 = require("./StateBase");
 const StateObject_1 = require("./StateObject");
 const unwrap_revive_1 = require("./unwrap_revive");
-const updateState_1 = require("./updateState");
-class Logger {
-    groupEnd() {
-        console.groupEnd();
-    }
-    log(message) {
-        console.log(message);
-    }
-    groupLog(message) {
-        console.group(message);
-    }
-}
-exports.Logger = Logger;
+const ignoreNotifications_1 = require("./ignoreNotifications");
 class RootStateImpl extends StateObject_1.stateObjectMixin() {
     constructor(obj, options) {
         super(obj);
         this._history = new history_1.NoboHistory(this);
-        this._loggerObject = null;
+        this._isRootState = true;
         this._inTransaction = false;
         this._transactionCompleteListeners = new Map();
-        if (options === null || options === void 0 ? void 0 : options.log)
-            this._loggerObject = new Logger();
     }
     _checkReferencesNotNull(skipLog = false) {
         // console.log("_checkReferencesNotNull ");
@@ -44,18 +30,32 @@ class RootStateImpl extends StateObject_1.stateObjectMixin() {
         return valid;
     }
     _load(data) {
-        this._transaction(() => {
-            this._history.ignore(() => {
-                let loadedState = unwrap_revive_1.revive(data);
-                for (let k in loadedState)
-                    if (!k.startsWith("_"))
-                        updateState_1.updateState(this, k, loadedState[k]);
-                unwrap_revive_1.reviveReferences(this, data);
+        try {
+            ignoreNotifications_1.ignoreNotifications.current = true;
+            this._transaction(() => {
+                this._history.ignore(() => {
+                    // let loadedState = revive(data);
+                    // for (let k in loadedState)
+                    //   if (!k.startsWith("_"))
+                    //     updateState(this, k, loadedState[k]);
+                    for (let k in data._stateObject) {
+                        if (!k.startsWith("_"))
+                            unwrap_revive_1.revive2(data._stateObject[k], this, k);
+                    }
+                    unwrap_revive_1.reviveReferences(this, data);
+                });
             });
-        });
-        if (!this._checkReferencesNotNull()) {
-            throw new Error("Error, found at least one non null reference in the model");
+            if (!this._checkReferencesNotNull()) {
+                throw new Error("Error, found at least one non null reference in the model");
+            }
         }
+        finally {
+            ignoreNotifications_1.ignoreNotifications.current = false;
+        }
+    }
+    _fastLoadRec(data) {
+    }
+    _fastLoad(data) {
     }
     _beginTransaction() {
         this._inTransaction = true;

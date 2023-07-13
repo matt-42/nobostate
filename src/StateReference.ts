@@ -100,8 +100,6 @@ function stateReferenceMixin<T extends HasId<any>>() {
         this._logger()?.groupLog(`Set reference ${this._path()} to: `);
         this._logger()?.log(idOrNewObj);
 
-        // console.log("SET REF ", this._path(), "to ", idOrNewObj);
-        // console.trace();
         if (!this._getRootState()._history)
           throw new Error("Cannot set a reference on a object unattached to any root state.");
 

@@ -12,7 +12,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.DummyHistory = exports.NoboHistory = void 0;
+exports.NoboHistory = void 0;
 const lodash_1 = __importDefault(require("lodash"));
 class NoboHistory {
     constructor(root) {
@@ -208,27 +208,4 @@ class NoboHistory {
     }
 }
 exports.NoboHistory = NoboHistory;
-// Fake History, just execute everything without remembering anything.
-class DummyHistory {
-    startGroup(groupId = null) { }
-    endGroup() { }
-    ignore(f) {
-        return f();
-    }
-    asyncIgnore(f) {
-        return __awaiter(this, void 0, void 0, function* () {
-            return f();
-        });
-    }
-    group(groupId_, f_) {
-        let f = f_ || groupId_;
-        let groupId = f_ ? groupId_ : null;
-        return f();
-    }
-    push(item) { }
-    redo() { }
-    goto(index) { }
-}
-exports.DummyHistory = DummyHistory;
-;
 //# sourceMappingURL=history.js.map

@@ -27,7 +27,7 @@ export declare function stateReferenceNotNullMixin<T extends HasId<any>>(): {
         _parent: any;
         _props: PropSpec & {
             _ref: import("./prop").TablePropSpec<T>;
-            _onRefDeleted: "set-null" | "cascade" | ((target: any, removeElement: any) => void);
+            _onRefDeleted: "cascade" | "set-null" | ((target: any, removeElement: any) => void);
             _own: boolean;
         } & {
             _: never;
@@ -57,11 +57,11 @@ export declare function stateReferenceNotNullMixin<T extends HasId<any>>(): {
         _onBeforeRemove(listener: (o: {
             __stateReference__: T;
         }) => void): () => void;
-        _dummyHistory: import("./history").DummyHistory;
-        _getRootStateHistory(): import("./history").NoboHistory | import("./history").DummyHistory;
+        _getRootStateHistory(): import("./history").NoboHistory | null;
+        _rootStateCache: import("./RootState").RootState<unknown> | null;
         _getRootState(): import("./RootState").RootState<unknown>;
         _rootStateAccess(path: string[]): any;
-        _logger(): import("./RootState").Logger | null;
+        _logger(): import("./log").Logger | null;
         _subscribeSelector<R>(selector: (t: any) => R, compute: (selected: R) => void, initCall?: boolean): void;
         _subscribe(listener: (value: any, updatedKey: "__stateReference__") => void, initCall?: boolean): () => void;
         _subscribeKey<K_1 extends "__stateReference__">(key: K_1, listener: (value: K_1 extends "__stateReference__" ? {
@@ -78,14 +78,14 @@ export declare function stateReferenceNotNullMixin<T extends HasId<any>>(): {
         }[P_1] : never): void;
         _notifyThisSubscribers(): void;
         _parentDispose: (() => void) | null;
-        _children: Map<string, {
+        _childrenMap: Map<string, {
             _isStateBase: boolean;
             __removed__: boolean;
             _proxifiedThis: any | null;
             _parent: any;
             _props: PropSpec & {
                 _ref: import("./prop").TablePropSpec<T>;
-                _onRefDeleted: "set-null" | "cascade" | ((target: any, removeElement: any) => void);
+                _onRefDeleted: "cascade" | "set-null" | ((target: any, removeElement: any) => void);
                 _own: boolean;
             } & {
                 _: never;
@@ -116,11 +116,11 @@ export declare function stateReferenceNotNullMixin<T extends HasId<any>>(): {
                 __stateReference__: T;
             }) => void): () => void;
             _setProps(props: PropSpec): void;
-            _dummyHistory: import("./history").DummyHistory;
-            _getRootStateHistory(): import("./history").NoboHistory | import("./history").DummyHistory;
+            _getRootStateHistory(): import("./history").NoboHistory | null;
+            _rootStateCache: import("./RootState").RootState<unknown> | null;
             _getRootState(): import("./RootState").RootState<unknown>;
             _rootStateAccess(path: string[]): any;
-            _logger(): import("./RootState").Logger | null;
+            _logger(): import("./log").Logger | null;
             _subscribeSelector<R_1>(selector: (t: any) => R_1, compute: (selected: R_1) => void, initCall?: boolean): void;
             _subscribe(listener: (value: any, updatedKey: "__stateReference__") => void, initCall?: boolean): () => void;
             _subscribeKey<K_2 extends "__stateReference__">(key: K_2, listener: (value: K_2 extends "__stateReference__" ? {
@@ -137,7 +137,74 @@ export declare function stateReferenceNotNullMixin<T extends HasId<any>>(): {
             }[P_3] : never): void;
             _notifyThisSubscribers(): void;
             _parentDispose: (() => void) | null;
-            _children: Map<string, any>;
+            _childrenMap: Map<string, any> | null;
+            _children(): Map<string, any>;
+            _registerChild<P_4 extends "__stateReference__">(propOrId: P_4, child: P_4 extends "__stateReference__" ? {
+                __stateReference__: T;
+            }[P_4] : never): void;
+            _traverse(fun: (node: any) => void): void;
+        }> | null;
+        _children(): Map<string, {
+            _isStateBase: boolean;
+            __removed__: boolean;
+            _proxifiedThis: any | null;
+            _parent: any;
+            _props: PropSpec & {
+                _ref: import("./prop").TablePropSpec<T>;
+                _onRefDeleted: "cascade" | "set-null" | ((target: any, removeElement: any) => void);
+                _own: boolean;
+            } & {
+                _: never;
+            } & { [K in keyof T]: import("./prop").StatePropIdentifiers2<T[K], StateObject<T>>; };
+            _subscribers: {
+                [K: string]: ((value: any, key: "__stateReference__") => void)[];
+            };
+            _thisSubscribers: ((value: any, key: "__stateReference__") => void)[];
+            _parentListener: (() => void) | null;
+            _onChange(listener: (value: any, key: "__stateReference__") => void): () => void;
+            _removeListeners: ((o: {
+                __stateReference__: T;
+            }) => void)[];
+            _onRemove(listener: (o: {
+                __stateReference__: T;
+            }) => void): () => ((o: {
+                __stateReference__: T;
+            }) => void)[];
+            _onRemoveInternal(listener: (o: {
+                __stateReference__: T;
+            }) => void): () => ((o: {
+                __stateReference__: T;
+            }) => void)[];
+            _beforeRemoveListeners: ((o: {
+                __stateReference__: T;
+            }) => void)[];
+            _onBeforeRemove(listener: (o: {
+                __stateReference__: T;
+            }) => void): () => void;
+            _setProps(props: PropSpec): void;
+            _getRootStateHistory(): import("./history").NoboHistory | null;
+            _rootStateCache: import("./RootState").RootState<unknown> | null;
+            _getRootState(): import("./RootState").RootState<unknown>;
+            _rootStateAccess(path: string[]): any;
+            _logger(): import("./log").Logger | null;
+            _subscribeSelector<R_1>(selector: (t: any) => R_1, compute: (selected: R_1) => void, initCall?: boolean): void;
+            _subscribe(listener: (value: any, updatedKey: "__stateReference__") => void, initCall?: boolean): () => void;
+            _subscribeKey<K_2 extends "__stateReference__">(key: K_2, listener: (value: K_2 extends "__stateReference__" ? {
+                __stateReference__: T;
+            }[K_2] : never, updatedKey: "__stateReference__") => void, initCall?: boolean): () => void;
+            _path(): string;
+            _subscribeKeys(keys: "__stateReference__"[], listener: (value: any, updatedKey: "__stateReference__") => void, initCall?: boolean): () => void;
+            _get<P_2 extends "__stateReference__">(prop: P_2): P_2 extends "__stateReference__" ? {
+                __stateReference__: T;
+            }[P_2] : never;
+            _runNotification(listeners: any | ((...args: any[]) => void)[], ...args: any[]): void;
+            _notifySubscribers<P_3 extends "__stateReference__">(propOrId: P_3, value: P_3 extends "__stateReference__" ? {
+                __stateReference__: T;
+            }[P_3] : never): void;
+            _notifyThisSubscribers(): void;
+            _parentDispose: (() => void) | null;
+            _childrenMap: Map<string, any> | null;
+            _children(): Map<string, any>;
             _registerChild<P_4 extends "__stateReference__">(propOrId: P_4, child: P_4 extends "__stateReference__" ? {
                 __stateReference__: T;
             }[P_4] : never): void;
@@ -153,7 +220,7 @@ export declare function stateReferenceNotNullMixin<T extends HasId<any>>(): {
             _parent: any;
             _props: PropSpec & {
                 _ref: import("./prop").TablePropSpec<T>;
-                _onRefDeleted: "set-null" | "cascade" | ((target: any, removeElement: any) => void);
+                _onRefDeleted: "cascade" | "set-null" | ((target: any, removeElement: any) => void);
                 _own: boolean;
             } & {
                 _: never;
@@ -184,11 +251,11 @@ export declare function stateReferenceNotNullMixin<T extends HasId<any>>(): {
                 __stateReference__: T;
             }) => void): () => void;
             _setProps(props: PropSpec): void;
-            _dummyHistory: import("./history").DummyHistory;
-            _getRootStateHistory(): import("./history").NoboHistory | import("./history").DummyHistory;
+            _getRootStateHistory(): import("./history").NoboHistory | null;
+            _rootStateCache: import("./RootState").RootState<unknown> | null;
             _getRootState(): import("./RootState").RootState<unknown>;
             _rootStateAccess(path: string[]): any;
-            _logger(): import("./RootState").Logger | null;
+            _logger(): import("./log").Logger | null;
             _subscribeSelector<R_1>(selector: (t: any) => R_1, compute: (selected: R_1) => void, initCall?: boolean): void;
             _subscribe(listener: (value: any, updatedKey: "__stateReference__") => void, initCall?: boolean): () => void;
             _subscribeKey<K_2 extends "__stateReference__">(key: K_2, listener: (value: K_2 extends "__stateReference__" ? {
@@ -205,7 +272,8 @@ export declare function stateReferenceNotNullMixin<T extends HasId<any>>(): {
             }[P_3] : never): void;
             _notifyThisSubscribers(): void;
             _parentDispose: (() => void) | null;
-            _children: Map<string, any>;
+            _childrenMap: Map<string, any> | null;
+            _children(): Map<string, any>;
             _registerChild<P_4 extends "__stateReference__">(propOrId: P_4, child: P_4 extends "__stateReference__" ? {
                 __stateReference__: T;
             }[P_4] : never): void;

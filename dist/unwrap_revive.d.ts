@@ -26,6 +26,7 @@ declare type unwrappedTable = {
 declare type unwrappedAny = unwrappedObject | unwrappedArray | unwrappedObjectArray | unwrappedTable;
 export declare function reviveReferences(state: any, srcData: any): any;
 export declare function revive(state: unwrappedAny): any;
+export declare function revive2(state: unwrappedAny, parent: StateObject<any>, key: string): any;
 /**
  * Extract state for serialization.
  * @param state

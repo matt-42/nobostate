@@ -101,7 +101,7 @@ function stateTableMixin() {
             const run = ((_a = this._getRootState()) === null || _a === void 0 ? void 0 : _a._transaction) || ((x) => { return x(); });
             const run2 = ((x) => { return autorun_1.autorunIgnore(() => run(x)); });
             return run2(() => {
-                var _a, _b, _c;
+                var _a, _b, _c, _d;
                 let insert_code = () => {
                     var _a, _b;
                     // Compute new id if needed.
@@ -157,8 +157,8 @@ function stateTableMixin() {
                 // if ((value as StateObject<T>)._isStateObject)
                 //   this._logger()?.log(`stateObject with id ${value.id}`);
                 (_b = this._logger()) === null || _b === void 0 ? void 0 : _b.log(value);
-                let res = this._getRootStateHistory().group(insert_code);
-                (_c = this._logger()) === null || _c === void 0 ? void 0 : _c.groupEnd();
+                let res = ((_c = this._getRootStateHistory()) === null || _c === void 0 ? void 0 : _c.group(insert_code)) || insert_code();
+                (_d = this._logger()) === null || _d === void 0 ? void 0 : _d.groupEnd();
                 return res;
             });
         }

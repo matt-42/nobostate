@@ -102,7 +102,6 @@ function updateState(dst, prop, src) {
             // if src is a instance of StateBase, register it as a child
             // and propagate props.
             if (prev === undefined && (src === null || src === void 0 ? void 0 : src._isStateBase)) {
-                // console.log("register child ", prop, dst._registerChild);
                 dst._registerChild(prop, src);
                 if (dst._props)
                     prop_1.propagatePropIds(src, dst._props[prop]);

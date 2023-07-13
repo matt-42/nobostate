@@ -194,7 +194,7 @@ class StateObjectArray extends StateArray {
     }
     push(...elements) {
         elements.forEach(value => {
-            let elt = nobostate_1.stateObject(value);
+            let elt = value._isStateObject ? value : nobostate_1.stateObject(value);
             super.push(elt);
             this._registerChild(this.length - 1, elt);
             prop_1.propagatePropIds(elt, this._props);

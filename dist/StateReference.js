@@ -83,8 +83,6 @@ function stateReferenceMixin() {
                 autorun_1.currentAutorunContext === null || autorun_1.currentAutorunContext === void 0 ? void 0 : autorun_1.currentAutorunContext.accesses.delete({ state: this, key: null });
                 (_a = this._logger()) === null || _a === void 0 ? void 0 : _a.groupLog(`Set reference ${this._path()} to: `);
                 (_b = this._logger()) === null || _b === void 0 ? void 0 : _b.log(idOrNewObj);
-                // console.log("SET REF ", this._path(), "to ", idOrNewObj);
-                // console.trace();
                 if (!this._getRootState()._history)
                     throw new Error("Cannot set a reference on a object unattached to any root state.");
                 // Stop listening to previous ref onDelete.

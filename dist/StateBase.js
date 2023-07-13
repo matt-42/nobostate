@@ -5,8 +5,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.stateBaseMixin = exports.callListeners = void 0;
 const lodash_1 = __importDefault(require("lodash"));
-const history_1 = require("./history");
-// import { updateState } from "./updateState";
+const ignoreNotifications_1 = require("./ignoreNotifications");
+const log_1 = require("./log");
 function callListeners(listeners, ...args) {
     var _a;
     if (!Array.isArray(listeners)) {
@@ -41,9 +41,9 @@ function stateBaseMixin(wrapped) {
             this._parentListener = null;
             this._removeListeners = [];
             this._beforeRemoveListeners = [];
-            this._dummyHistory = new history_1.DummyHistory();
+            this._rootStateCache = null;
             this._parentDispose = null;
-            this._children = new Map();
+            this._childrenMap = null;
         }
         _onChange(listener) {
             this._thisSubscribers.push(listener);
@@ -71,19 +71,18 @@ function stateBaseMixin(wrapped) {
             this._props = props;
         }
         _getRootStateHistory() {
-            const h = this._getRootState()._history;
-            if (h)
-                return h;
-            return this._dummyHistory;
+            return this._getRootState()._history || null;
         }
         _getRootState() {
+            if (this._rootStateCache)
+                return this._rootStateCache;
             let it = this;
             while (it._parent)
                 it = it._parent;
             if (!it)
                 throw new Error();
-            // if (!(it as any)._history)
-            // throw new Error('Root state has no _history field.');
+            if (it._isRootState)
+                this._rootStateCache = it;
             return it;
         }
         _rootStateAccess(path) {
@@ -95,8 +94,7 @@ function stateBaseMixin(wrapped) {
             return elt;
         }
         _logger() {
-            var _a;
-            return (_a = this._getRootState()) === null || _a === void 0 ? void 0 : _a._loggerObject;
+            return log_1._globalLogger;
         }
         _subscribeSelector(selector, compute, initCall = false) {
             let prev = null;
@@ -154,8 +152,11 @@ function stateBaseMixin(wrapped) {
         //   updateState(this, prop, value);
         // }
         _runNotification(listeners, ...args) {
+            if (ignoreNotifications_1.ignoreNotifications.current)
+                return;
             if (!this.__beingRemoved__ && !this.__removed__) {
                 let root = this._getRootState();
+                // if (root._ignoreNotifications) return;
                 if (root._notification)
                     root._notification(this, listeners, ...args);
                 else
@@ -165,7 +166,12 @@ function stateBaseMixin(wrapped) {
         // A prop has been updated.
         // notify subscribers and the parent.
         _notifySubscribers(propOrId, value) {
+            // console.log("notify");
             var _a, _b;
+            // this._subscribers[propOrId as string] ||= [];
+            // return;
+            if (ignoreNotifications_1.ignoreNotifications.current)
+                return;
             (_a = this._subscribers)[_b = propOrId] || (_a[_b] = []);
             this._runNotification(this._subscribers[propOrId], this._get(propOrId), propOrId);
             this._runNotification(this._thisSubscribers, this, propOrId);
@@ -174,9 +180,16 @@ function stateBaseMixin(wrapped) {
             this._runNotification(this); // runs this.parentListener. 
         }
         _notifyThisSubscribers() {
+            if (ignoreNotifications_1.ignoreNotifications.current)
+                return;
             // [...this._thisSubscribers].forEach(sub => this._runNotification(sub, this, null as any));
             this._runNotification(this._thisSubscribers, this, null);
             this._runNotification(this); // runs this.parentListener. 
+        }
+        _children() {
+            if (!this._childrenMap)
+                this._childrenMap = new Map();
+            return this._childrenMap;
         }
         //_children2 : StateBaseClass[] = [];
         _registerChild(propOrId, child) {
@@ -197,11 +210,11 @@ function stateBaseMixin(wrapped) {
                     [...childBase._removeListeners].forEach((f) => f(childBase));
                 });
                 // Add the child the the children array.
-                this._children.set(propOrId.toString(), child);
+                this._children().set(propOrId.toString(), child);
                 //this._children2.push(child as StateBaseClass);
                 // console.log("push child for ", propOrId);
                 childBase._parentDispose = () => {
-                    this._children.delete(propOrId.toString());
+                    this._children().delete(propOrId.toString());
                     // console.log("dispose propId ", propOrId);
                     //_.remove(this._children2, c => c === child);
                     disposeOnRemove();
@@ -209,7 +222,7 @@ function stateBaseMixin(wrapped) {
             }
         }
         _traverse(fun) {
-            for (let [propId, child] of this._children) {
+            for (let [propId, child] of this._children()) {
                 // if (k !== "_parent" && this[k] && (this[k] as any)._isStateBase && !(this[k] as any)._isStateReference)
                 // {
                 //   fun(this[k] as any);

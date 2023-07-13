@@ -10,7 +10,7 @@
  * @param ignoreProps
  */
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.unwrapState = exports.revive = exports.reviveReferences = void 0;
+exports.unwrapState = exports.revive2 = exports.revive = exports.reviveReferences = void 0;
 const nobostate_1 = require("./nobostate");
 const StateReference_1 = require("./StateReference");
 const StateReferenceArray_1 = require("./StateReferenceArray");
@@ -105,6 +105,102 @@ function revive(state) {
         return state;
 }
 exports.revive = revive;
+function revive2(state, parent, key) {
+    //console.log("revive2 key", parent._path(), key);
+    if (!state)
+        return state;
+    let anyState = state;
+    // Do not re-bind already bound objects.
+    if (anyState._isStateBase !== undefined)
+        throw new Error("Cannot revive a State object");
+    // if (anyState._registerChild) return state;
+    // map.
+    else if (anyState._stateTable !== undefined) {
+        // console.log("state table!")
+        let table = parent[key] || nobostate_1.stateTable();
+        if (!parent._getRootState()._history)
+            throw new Error();
+        // if (!parent._history && !parent._parent) throw new Error("Missing parent: " + parent._path());
+        parent[key] = table;
+        table.clear();
+        if (!table._getRootState()._history)
+            throw new Error("!table._getRootState()._history " + key);
+        // console.log(anyState._stateTable.length, "ids"); 
+        anyState._stateTable.forEach((elt) => {
+            // console.log("revive id ", elt._stateObject.id, elt._stateObject);
+            revive2(elt, table, elt._stateObject.id);
+            // console.log(elt._stateObject.id)
+        });
+    }
+    // Array
+    else if (anyState._stateArray !== undefined) {
+        let arr = parent[key] || nobostate_1.stateArray();
+        if (!parent._isStateObject)
+            throw new Error();
+        parent[key] = arr;
+        if (!arr._getRootState()._history)
+            throw new Error("Missing parent: obj is stateArray");
+        arr.push(...anyState._stateArray);
+        return arr;
+    }
+    // Object Array.
+    else if (anyState._stateObjectArray !== undefined) {
+        let arr = parent[key] || nobostate_1.stateObjectArray();
+        if (!parent._isStateObject)
+            throw new Error();
+        parent[key] = arr;
+        if (!arr._getRootState()._history)
+            throw new Error("Missing parent: obj is stateArray");
+        anyState._stateObjectArray.forEach((elt, idx) => {
+            revive2(elt, arr, idx);
+        });
+        return arr;
+    }
+    // Object
+    else if (anyState._stateObject !== undefined) {
+        let obj = parent[key] || nobostate_1.stateObject(Object);
+        obj.id = anyState._stateObject.id;
+        if (parent._isStateTable) {
+            parent.insert(obj);
+        }
+        else if (parent._isStateObjectArray) {
+            parent.push(obj);
+        }
+        else {
+            parent[key] = obj;
+        }
+        if (!obj._getRootState()._history) {
+            console.log(parent._isStateBase, parent._isRootState, Object.keys(parent), "removed", parent.__removed__);
+            console.log(obj._parent === parent);
+            console.log(!!parent._parent);
+            throw new Error("Missing parent: obj is stateobject, parent is stateobject ");
+        }
+        for (let k in anyState._stateObject)
+            revive2(anyState._stateObject[k], obj, k);
+    }
+    else if (anyState._stateReference !== undefined) {
+        // Refs are initialized after with reviveReferences
+        if (!parent._isStateObject)
+            throw new Error();
+        parent[key] = parent[key] || (anyState._notNull ?
+            StateReference_1.stateReferenceNotNull(null) : StateReference_1.stateReference(null));
+        // console.log(Object.keys(parent));
+        if (!parent._getRootState()._history)
+            throw new Error("Missing parent: obj is statereference");
+    }
+    else if (anyState._stateReferenceArray !== undefined) {
+        if (!parent._isStateObject)
+            throw new Error();
+        parent[key] = parent[key] || StateReferenceArray_1.stateReferenceArray();
+        if (!parent[key]._getRootState()._history)
+            throw new Error("Missing parent: obj is _stateReferenceArray");
+    }
+    // prop
+    else {
+        parent[key] = state;
+    }
+}
+exports.revive2 = revive2;
 function initializePropIdentifiers(propId, state) {
     state.propId = propId;
     for (let k in state)
