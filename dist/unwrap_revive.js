@@ -107,7 +107,7 @@ function revive(state) {
 exports.revive = revive;
 function revive2(state, parent, key) {
     //console.log("revive2 key", parent._path(), key);
-    if (!state)
+    if (state == undefined || state == null)
         return state;
     let anyState = state;
     // Do not re-bind already bound objects.

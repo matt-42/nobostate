@@ -444,3 +444,28 @@ test('refarray-onRefDeleted-function', () => {
   state.table1.remove(tobeRemoved.id);
   expect(called).toBe(1);
 });
+
+
+type TestNumber = { id: string, position: number };
+
+
+test('set-zero-member', () => {
+
+  let state = createState({
+    table1: stateTable<TestNumber>(),
+    table2: stateTable<{ id: string, ref: StateReferenceArray<TestNumber> }>(),
+  },
+    {
+      setSpecs: (props, specs) => {
+        specs.referenceArray(props.table2.ref, props.table1);
+      }
+    });
+
+  let obj = state.table2.insert({ id: "1", ref: stateReferenceArray<TestNumber>([{ id: newStringId(), position: 0 }])});
+
+  expect(obj.ref[0].position).toBe(0);
+  obj.ref.push({id: newStringId(), position: 0});
+
+  expect(obj.ref[1].position).toBe(0);
+
+})

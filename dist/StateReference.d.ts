@@ -27,7 +27,7 @@ export declare function stateReferenceNotNullMixin<T extends HasId<any>>(): {
         _parent: any;
         _props: PropSpec & {
             _ref: import("./prop").TablePropSpec<T>;
-            _onRefDeleted: "cascade" | "set-null" | ((target: any, removeElement: any) => void);
+            _onRefDeleted: "set-null" | "cascade" | ((target: any, removeElement: any) => void);
             _own: boolean;
         } & {
             _: never;
@@ -85,7 +85,7 @@ export declare function stateReferenceNotNullMixin<T extends HasId<any>>(): {
             _parent: any;
             _props: PropSpec & {
                 _ref: import("./prop").TablePropSpec<T>;
-                _onRefDeleted: "cascade" | "set-null" | ((target: any, removeElement: any) => void);
+                _onRefDeleted: "set-null" | "cascade" | ((target: any, removeElement: any) => void);
                 _own: boolean;
             } & {
                 _: never;
@@ -151,7 +151,7 @@ export declare function stateReferenceNotNullMixin<T extends HasId<any>>(): {
             _parent: any;
             _props: PropSpec & {
                 _ref: import("./prop").TablePropSpec<T>;
-                _onRefDeleted: "cascade" | "set-null" | ((target: any, removeElement: any) => void);
+                _onRefDeleted: "set-null" | "cascade" | ((target: any, removeElement: any) => void);
                 _own: boolean;
             } & {
                 _: never;
@@ -220,7 +220,7 @@ export declare function stateReferenceNotNullMixin<T extends HasId<any>>(): {
             _parent: any;
             _props: PropSpec & {
                 _ref: import("./prop").TablePropSpec<T>;
-                _onRefDeleted: "cascade" | "set-null" | ((target: any, removeElement: any) => void);
+                _onRefDeleted: "set-null" | "cascade" | ((target: any, removeElement: any) => void);
                 _own: boolean;
             } & {
                 _: never;

@@ -1,6 +1,6 @@
 {
   "name": "nobostate",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "No boilerplate state management",
   "license": "MIT",
   "main": "dist/index.js",

@@ -121,7 +121,7 @@ export function revive2(state: unwrappedAny, parent : StateObject<any>, key: str
 
   //console.log("revive2 key", parent._path(), key);
 
-  if (!state) return state;
+  if (state == undefined || state == null) return state;
 
   let anyState: any = state;
   // Do not re-bind already bound objects.
