@@ -239,22 +239,22 @@ test('revive-object-incomplete', () => {
 
 });
 
-
 test('revive-zero-number', () => {
   type Item = { id: number };
   const newState = () => createState({
-    table1: stateTable<{ id: number, position: number }>(),
+    table1: stateTable<{ id: number, position: number|null }>(),
   }, {
   });
 
   const state = newState();
   state._load({
     _stateObject: {
-      table1: { _stateTable: [{ _stateObject: { id: 1, position: 0 } }] },
+      table1: { _stateTable: [{ _stateObject: { id: 1, position: 0 } },{ _stateObject: { id: 2, position: null } }] },
     }
   });
 
   expect(state.table1.get(1)?.position).toBe(0);
+  expect(state.table1.get(2)?.position).toBe(null);
 
 });
 
