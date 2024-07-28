@@ -306,7 +306,7 @@ export function triggerRefreshDebouncedObserver() {
 }
 
 
-export function useNoboObserver<R>(f : () => R, name? : string) {
+export function useNoboObserver<R>(f : () => R, name? : string, dependencies? : any[]) {
 
   const valueAtLastRender = useRef<R>();
   const [state, setState] = useState<R>(f());
@@ -330,7 +330,7 @@ export function useNoboObserver<R>(f : () => R, name? : string) {
         triggerRefreshDebouncedObserver();
       }
     });
-  }, []);
+  }, [...(dependencies || [])]);
 
   // when rerendering, refresh the ref.
   valueAtLastRender.current = f();

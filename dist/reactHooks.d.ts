@@ -37,7 +37,7 @@ export declare function useNoboIds<T extends HasId<any>>(table: StateTable<T>): 
 export declare const nobostateComponentRefreshQueue: ([React.RefObject<boolean>, () => void, string])[];
 export declare function flushRefreshQueue(): void;
 export declare function triggerRefreshDebouncedObserver(): void;
-export declare function useNoboObserver<R>(f: () => R, name?: string): R;
+export declare function useNoboObserver<R>(f: () => R, name?: string, dependencies?: any[]): R;
 export declare function observer<P>(component: React.FunctionComponent<P>, name?: string): React.FunctionComponent<P>;
 export declare function debouncedObserver<P>(component: React.FunctionComponent<P>, name?: string, waitMs?: number): React.FunctionComponent<P>;
 export {};

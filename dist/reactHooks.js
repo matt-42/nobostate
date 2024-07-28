@@ -222,7 +222,7 @@ function triggerRefreshDebouncedObserver() {
         refreshTimeout = setTimeout(flushRefreshQueue, 300);
 }
 exports.triggerRefreshDebouncedObserver = triggerRefreshDebouncedObserver;
-function useNoboObserver(f, name) {
+function useNoboObserver(f, name, dependencies) {
     const valueAtLastRender = react_1.useRef();
     const [state, setState] = react_1.useState(f());
     const dirty = react_1.useRef(true);
@@ -241,7 +241,7 @@ function useNoboObserver(f, name) {
                 triggerRefreshDebouncedObserver();
             }
         });
-    }, []);
+    }, [...(dependencies || [])]);
     // when rerendering, refresh the ref.
     valueAtLastRender.current = f();
     dirty.current = false;
