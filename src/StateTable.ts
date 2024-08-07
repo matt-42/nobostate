@@ -345,7 +345,7 @@ export interface StateTableInterface<T> extends StateBaseInterface<Map<IdType<T>
   map<R>(f: (o: StateObject<T>) => R): R[];
 
   flatMap<R>(f: (o: StateObject<T>) => R[]): R[];
-  find(predicate: (o: StateObject<T>) => boolean): StateObject<T>;
+  find(predicate: (o: StateObject<T>) => boolean): StateObject<T> | undefined;
 
   _subscribeIds(listener: (ids: IdType<T>[]) => void): () => void;
 

@@ -50,15 +50,15 @@ test('autorun-dynamic', () => {
   state.obj.x = 1;
   expect(called).toBe(2);
 
-  state.obj.x = 1;
+  state.obj.x = 2;
   expect(called).toBe(2);
 
 
-  state.obj.x = 1;
-  state.obj.y = 1;
+  state.obj.x = 3;
+  state.obj.y = 3;
   expect(called).toBe(3);
 
-  state.obj.x = 1;
+  state.obj.x = 4;
   expect(called).toBe(3);
 
 });
@@ -86,12 +86,12 @@ test('autorun on stateArray', () => {
   expect(called).toBe(2);
 
   i = 1;
-  state.arr[0] = 42;
+  state.arr[0] = 43;
   expect(called).toBe(3);
-  state.arr[0] = 42;
+  state.arr[0] = 44;
   expect(called).toBe(3);
 
-  state.arr[1] = 42;
+  state.arr[1] = 45;
   expect(called).toBe(4);
 
 });

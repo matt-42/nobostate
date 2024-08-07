@@ -261,48 +261,63 @@ export function useNoboIds<T extends HasId<any>>(table: StateTable<T>) {
 
 export const nobostateComponentRefreshQueue : ([React.RefObject<boolean>,  ()=>void, string])[] = [];
 let refreshTimeout : NodeJS.Timeout | null = null;
-
+let flushRefreshQueueRunning = false;
 export function flushRefreshQueue() {
-  // console.log("==== FLUSH REFRESH QUEUE =====", refreshQueue.length);
-  if (nobostateComponentRefreshQueue.length === 0) return;
 
-  // console.log("==== FLUSH REFRESH QUEUE =====");
-  refreshTimeout = null;
-
-  while (nobostateComponentRefreshQueue.length) {
-    const elt = nobostateComponentRefreshQueue.shift();
-    if (!elt) continue;
-  // for (let elt of refreshQueue) {
-    if (elt[0].current) 
-    {
-      //console.log(`====  FLUSH REFRESH QUEUE : ${elt[2]} =====`);
-      elt[1]();
+  try {
+    flushRefreshQueueRunning = true;
+    //console.log("==== FLUSH REFRESH QUEUE =====", nobostateComponentRefreshQueue.length);
+    refreshTimeout = null;
+    
+    if (nobostateComponentRefreshQueue.length === 0) return;
+    
+    //console.log("==== FLUSH REFRESH QUEUE =====");
+    
+    while (nobostateComponentRefreshQueue.length) {
+      const elt = nobostateComponentRefreshQueue.shift();
+      if (!elt) continue;
+      // for (let elt of refreshQueue) {
+      if (elt[0].current) 
+        {
+          //console.log(`====  FLUSH REFRESH QUEUE : ${elt[2]} =====`);
+          elt[1]();
+        }
+        else {
+          //console.log(`====  FLUSH REFRESH QUEUE : skip non dirty ${elt[2]} =====`);
+        }
+          
     }
-    else {
-      // console.log(`====  FLUSH REFRESH QUEUE : skip ${elt[2]} =====`);
-    }
-
+    nobostateComponentRefreshQueue.length = 0;
+    // console.log("==== END OF FLUSH REFRESH QUEUE =====");
+    
+    // const elt = refreshQueue.shift();
+    // if (!elt) return;
+    // if (elt[0].current) 
+    // {
+    //   console.log(`====  FLUSH REFRESH QUEUE : ${elt[2]} =====`);
+    //   elt[1]();
+    // }
+    // else {
+      //   console.log(`====  FLUSH REFRESH QUEUE : skip ${elt[2]} =====`);
+      // }
+      // refreshTimeout = setTimeout(flushRefreshQueue, 10);
+          
   }
-  nobostateComponentRefreshQueue.length = 0;
-  // console.log("==== END OF FLUSH REFRESH QUEUE =====");
-
-  // const elt = refreshQueue.shift();
-  // if (!elt) return;
-  // if (elt[0].current) 
-  // {
-  //   console.log(`====  FLUSH REFRESH QUEUE : ${elt[2]} =====`);
-  //   elt[1]();
-  // }
-  // else {
-  //   console.log(`====  FLUSH REFRESH QUEUE : skip ${elt[2]} =====`);
-  // }
-  // refreshTimeout = setTimeout(flushRefreshQueue, 10);
-
+  finally {
+    flushRefreshQueueRunning = false;
+  }
 }
-
-export function triggerRefreshDebouncedObserver() {
+        
+        export function triggerRefreshDebouncedObserver() {
   if (refreshTimeout === null)
-   refreshTimeout = setTimeout(flushRefreshQueue, 300);
+  {
+    //console.log("Observer::setRefreshTimeout");
+    refreshTimeout = setTimeout(flushRefreshQueue, 300);
+  }
+  // else {
+  //   console.log("Observer::setRefreshTimeout timeout already set");
+
+  // }
 }
 
 
@@ -379,7 +394,7 @@ export function debouncedObserver<P>(component : React.FunctionComponent<P>, nam
     // const refresh = _.debounce(useRefreshThisComponent(), waitMs);
     const refresh = useRefreshThisComponent();
     const reaction = useMemo(() => new Reaction(() => {
-      // console.log("Observer::refresh ", name);
+      //console.log("Observer::defer_refresh ", name);
       // refresh(); 
       nobostateComponentRefreshQueue.push([dirty, refresh, name || component.name]);
       dirty.current = true;
@@ -388,10 +403,12 @@ export function debouncedObserver<P>(component : React.FunctionComponent<P>, nam
 
     useEffect(() => () => reaction.dispose(), []);
 
-    // console.log("Observer::render ", name, firstCall);
+    //console.log("Observer::render ", name, firstCall);
 
-    dirty.current = false;
+    if (flushRefreshQueueRunning)
+      dirty.current = false;
     firstCall = false;
+    // return reaction.track(() => component(props), name) || null;
     return reaction.track(() => component(props), name) || null;
   }
 }

@@ -87,7 +87,10 @@ function debouncedAutorun(f, name, wait = 10) {
     const isParams = params.track !== undefined;
     const reaction = new Reaction(() => { });
     const track = () => reaction.track(isParams ? params.track : trackAndReact, name);
-    reaction.reactionCallback = lodash_1.default.debounce(isParams ? params.react : track, wait);
+    reaction.reactionCallback = lodash_1.default.debounce(() => {
+        if (!reaction.disposed)
+            isParams ? params.react() : track();
+    }, wait);
     track();
     return () => reaction.dispose();
 }
@@ -114,6 +117,7 @@ class Reaction {
             console.log(`${state._path()}${key ? "/" + key : ""}`);
         });
     }
+    // dispose reaction.
     dispose() {
         this.disposed = true;
         // console.log("dispose REACTION.", this.name)

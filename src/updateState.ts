@@ -62,8 +62,10 @@ export function updateState(dst: any, prop: any, src: any) {
 
         if (isPrimitive(obj[k])) {
           // console.log("update ", k, " with ", src[k])
+          const willNotify = obj[k] === src[k];
           obj[k] = src[k];
-          obj._notifySubscribers(k, obj[k]);
+          if (willNotify)
+            obj._notifySubscribers(k, obj[k]);
         }
 
         else
@@ -138,7 +140,8 @@ export function updateState(dst: any, prop: any, src: any) {
       // if it is different than it's previous version,
       // notify the subscribers.
       // actually it's too slow: if (!_.isEqual(prev, dst[prop]))
-      dst._notifySubscribers(prop, src);
+      if (prev !== dst[prop])
+        dst._notifySubscribers(prop, src);
 
       // console.log(prop);
       // console.log(dst._getRootState());

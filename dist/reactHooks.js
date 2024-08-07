@@ -183,43 +183,55 @@ function useNoboIds(table) {
 exports.useNoboIds = useNoboIds;
 exports.nobostateComponentRefreshQueue = [];
 let refreshTimeout = null;
+let flushRefreshQueueRunning = false;
 function flushRefreshQueue() {
-    // console.log("==== FLUSH REFRESH QUEUE =====", refreshQueue.length);
-    if (exports.nobostateComponentRefreshQueue.length === 0)
-        return;
-    // console.log("==== FLUSH REFRESH QUEUE =====");
-    refreshTimeout = null;
-    while (exports.nobostateComponentRefreshQueue.length) {
-        const elt = exports.nobostateComponentRefreshQueue.shift();
-        if (!elt)
-            continue;
-        // for (let elt of refreshQueue) {
-        if (elt[0].current) {
-            //console.log(`====  FLUSH REFRESH QUEUE : ${elt[2]} =====`);
-            elt[1]();
+    try {
+        flushRefreshQueueRunning = true;
+        //console.log("==== FLUSH REFRESH QUEUE =====", nobostateComponentRefreshQueue.length);
+        refreshTimeout = null;
+        if (exports.nobostateComponentRefreshQueue.length === 0)
+            return;
+        //console.log("==== FLUSH REFRESH QUEUE =====");
+        while (exports.nobostateComponentRefreshQueue.length) {
+            const elt = exports.nobostateComponentRefreshQueue.shift();
+            if (!elt)
+                continue;
+            // for (let elt of refreshQueue) {
+            if (elt[0].current) {
+                //console.log(`====  FLUSH REFRESH QUEUE : ${elt[2]} =====`);
+                elt[1]();
+            }
+            else {
+                //console.log(`====  FLUSH REFRESH QUEUE : skip non dirty ${elt[2]} =====`);
+            }
         }
-        else {
-            // console.log(`====  FLUSH REFRESH QUEUE : skip ${elt[2]} =====`);
-        }
+        exports.nobostateComponentRefreshQueue.length = 0;
+        // console.log("==== END OF FLUSH REFRESH QUEUE =====");
+        // const elt = refreshQueue.shift();
+        // if (!elt) return;
+        // if (elt[0].current) 
+        // {
+        //   console.log(`====  FLUSH REFRESH QUEUE : ${elt[2]} =====`);
+        //   elt[1]();
+        // }
+        // else {
+        //   console.log(`====  FLUSH REFRESH QUEUE : skip ${elt[2]} =====`);
+        // }
+        // refreshTimeout = setTimeout(flushRefreshQueue, 10);
     }
-    exports.nobostateComponentRefreshQueue.length = 0;
-    // console.log("==== END OF FLUSH REFRESH QUEUE =====");
-    // const elt = refreshQueue.shift();
-    // if (!elt) return;
-    // if (elt[0].current) 
-    // {
-    //   console.log(`====  FLUSH REFRESH QUEUE : ${elt[2]} =====`);
-    //   elt[1]();
-    // }
-    // else {
-    //   console.log(`====  FLUSH REFRESH QUEUE : skip ${elt[2]} =====`);
-    // }
-    // refreshTimeout = setTimeout(flushRefreshQueue, 10);
+    finally {
+        flushRefreshQueueRunning = false;
+    }
 }
 exports.flushRefreshQueue = flushRefreshQueue;
 function triggerRefreshDebouncedObserver() {
-    if (refreshTimeout === null)
+    if (refreshTimeout === null) {
+        //console.log("Observer::setRefreshTimeout");
         refreshTimeout = setTimeout(flushRefreshQueue, 300);
+    }
+    // else {
+    //   console.log("Observer::setRefreshTimeout timeout already set");
+    // }
 }
 exports.triggerRefreshDebouncedObserver = triggerRefreshDebouncedObserver;
 function useNoboObserver(f, name, dependencies) {
@@ -281,16 +293,18 @@ function debouncedObserver(component, name, waitMs) {
         // const refresh = _.debounce(useRefreshThisComponent(), waitMs);
         const refresh = useRefreshThisComponent();
         const reaction = react_1.useMemo(() => new autorun_1.Reaction(() => {
-            // console.log("Observer::refresh ", name);
+            //console.log("Observer::defer_refresh ", name);
             // refresh(); 
             exports.nobostateComponentRefreshQueue.push([dirty, refresh, name || component.name]);
             dirty.current = true;
             triggerRefreshDebouncedObserver();
         }), [dirty]);
         react_1.useEffect(() => () => reaction.dispose(), []);
-        // console.log("Observer::render ", name, firstCall);
-        dirty.current = false;
+        //console.log("Observer::render ", name, firstCall);
+        if (flushRefreshQueueRunning)
+            dirty.current = false;
         firstCall = false;
+        // return reaction.track(() => component(props), name) || null;
         return reaction.track(() => component(props), name) || null;
     };
 }

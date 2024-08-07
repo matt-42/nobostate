@@ -108,11 +108,14 @@ export function debouncedAutorun(f: AutorunFunction | AutorunParams,
 
   const params = f as AutorunParams;
   const trackAndReact = f as AutorunFunction;
-  const isParams = params.track !== undefined
+  const isParams = params.track !== undefined;
   const reaction = new Reaction(() => { });
 
   const track = () => reaction.track(isParams ? params.track : trackAndReact, name);
-  reaction.reactionCallback = _.debounce(isParams ? params.react : track, wait);
+  reaction.reactionCallback = _.debounce(() => {
+    if (!reaction.disposed)
+      isParams ? params.react() : track();
+  }, wait);
 
   track();
   return () => reaction.dispose();
@@ -146,6 +149,7 @@ export class Reaction {
     })
   }
 
+  // dispose reaction.
   dispose() {
     this.disposed = true;
     // console.log("dispose REACTION.", this.name)
