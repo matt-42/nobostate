@@ -17,6 +17,7 @@ export declare function stateTableMixin<T extends HasId<any>>(): {
         map<R>(f: (o: StateObject<T>) => R): R[];
         flatMap<R_2>(f: (o: StateObject<T>) => R_2[]): R_2[];
         find(predicate: (o: StateObject<T>) => boolean): any;
+        filter(predicate: (o: StateObject<T>) => boolean): any[];
         values(): IterableIterator<any>;
         _insertListeners: ((o: StateObject<T>) => void)[];
         onInsert(listener: (o: StateObject<T>) => void): () => void;
@@ -202,6 +203,7 @@ export interface StateTableInterface<T> extends StateBaseInterface<Map<IdType<T>
     map<R>(f: (o: StateObject<T>) => R): R[];
     flatMap<R>(f: (o: StateObject<T>) => R[]): R[];
     find(predicate: (o: StateObject<T>) => boolean): StateObject<T> | undefined;
+    filter(predicate: (o: StateObject<T>) => boolean): StateObject<T>[];
     _subscribeIds(listener: (ids: IdType<T>[]) => void): () => void;
     _insertListeners: ((o: StateObject<T>) => void)[];
     onInsert(listener: (o: StateObject<T>) => void): () => void;

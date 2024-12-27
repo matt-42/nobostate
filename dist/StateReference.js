@@ -202,12 +202,14 @@ function stateReferenceNotNullMixin() {
     };
 }
 exports.stateReferenceNotNullMixin = stateReferenceNotNullMixin;
+const stateReferenceClass = stateReferenceMixin();
+const stateReferenceNotNullClass = stateReferenceNotNullMixin();
 function stateReference(id) {
-    return new (stateReferenceMixin())(id);
+    return new (stateReferenceClass)(id);
 }
 exports.stateReference = stateReference;
 function stateReferenceNotNull(id) {
-    return new (stateReferenceNotNullMixin())(id);
+    return new (stateReferenceNotNullClass)(id);
 }
 exports.stateReferenceNotNull = stateReferenceNotNull;
 function nullStateReference() {

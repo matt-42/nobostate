@@ -61,6 +61,10 @@ export function stateTableMixin<T extends HasId<any>>() {
       currentAutorunContext?.accesses.set({ state: this as any, key: null }, true);
       return [...this.values()].find(predicate);
     }
+    filter(predicate: (o: StateObject<T>) => boolean) {
+      currentAutorunContext?.accesses.set({ state: this as any, key: null }, true);
+      return [...this.values()].filter(predicate);
+    }
     values() {
       currentAutorunContext?.accesses.set({ state: this as any, key: null }, true);
       return super.values();
@@ -346,6 +350,7 @@ export interface StateTableInterface<T> extends StateBaseInterface<Map<IdType<T>
 
   flatMap<R>(f: (o: StateObject<T>) => R[]): R[];
   find(predicate: (o: StateObject<T>) => boolean): StateObject<T> | undefined;
+  filter(predicate: (o: StateObject<T>) => boolean): StateObject<T>[];
 
   _subscribeIds(listener: (ids: IdType<T>[]) => void): () => void;
 

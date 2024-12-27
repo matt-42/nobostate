@@ -321,6 +321,16 @@ export function flushRefreshQueue() {
 }
 
 
+export function useNoboAutorun(f : () => void, dependencies? : any[]) {
+
+  useEffect(() => {
+    return autorun(() => { 
+      f();
+    });
+  }, [...(dependencies || [])]);
+
+}
+
 export function useNoboObserver<R>(f : () => R, name? : string, dependencies? : any[]) {
 
   const valueAtLastRender = useRef<R>();

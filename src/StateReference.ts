@@ -235,6 +235,7 @@ export function stateReferenceNotNullMixin<T extends HasId<any>>() {
   }
 }
 
+
 export type StateReference<T> = StateBaseInterface<T> & {
   _isStateReference: boolean;
   _toInitialize: IdType<T> | T | null;
@@ -249,11 +250,14 @@ export type StateReferenceNotNull<T> = StateReference<T> & {
   ref: StateObject<T>;
 }
 
+const stateReferenceClass = stateReferenceMixin();
+const stateReferenceNotNullClass = stateReferenceNotNullMixin();
+
 export function stateReference<T extends HasId<any>>(id: IdType<T> | T | StateObject<T> | null) {
-  return new (stateReferenceMixin<T>())(id) as any as StateReference<T>;
+  return new (stateReferenceClass)(id) as any as StateReference<T>;
 }
 export function stateReferenceNotNull<T extends HasId<any>>(id: IdType<T> | T | StateObject<T>) {
-  return new (stateReferenceNotNullMixin<T>())(id) as any as StateReferenceNotNull<T>;
+  return new (stateReferenceNotNullClass)(id) as any as StateReferenceNotNull<T>;
 }
 export function nullStateReference(): StateReference<any> {
   return stateReference<any>(null);

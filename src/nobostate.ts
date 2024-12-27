@@ -18,12 +18,14 @@ import { HasId, StateTable, stateTableMixin } from "./StateTable";
 //   } : T;
 
 
+const stateObjectClass = stateObjectMixin();
 export const stateObject = <T>(data: T) =>
-  new (stateObjectMixin<T>())(data) as any as StateObject<T>;
+  new (stateObjectClass)(data) as any as StateObject<T>;
 
 export const stateArray = <T>() => new StateArray<T>();
 export const stateObjectArray = <T>() => new StateObjectArray<T>() as StateObjectArray<T>;
-export const stateTable = <T extends HasId<any>>() => new (stateTableMixin<T>())() as StateTable<T>;
+const stateTableClass = stateTableMixin();
+export const stateTable = <T extends HasId<any>>() => new stateTableClass() as any as StateTable<T>;
 
 
 // type FilterInternalMethods<T> =

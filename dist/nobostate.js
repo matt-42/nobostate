@@ -16,13 +16,15 @@ const StateTable_1 = require("./StateTable");
 //   T extends Object ? {
 //     readonly [P in keyof T]: T[P] extends Function ? T[P] : ReadOnly<T[P]>;
 //   } : T;
-const stateObject = (data) => new (StateObject_1.stateObjectMixin())(data);
+const stateObjectClass = StateObject_1.stateObjectMixin();
+const stateObject = (data) => new (stateObjectClass)(data);
 exports.stateObject = stateObject;
 const stateArray = () => new StateArray_1.StateArray();
 exports.stateArray = stateArray;
 const stateObjectArray = () => new StateArray_1.StateObjectArray();
 exports.stateObjectArray = stateObjectArray;
-const stateTable = () => new (StateTable_1.stateTableMixin())();
+const stateTableClass = StateTable_1.stateTableMixin();
+const stateTable = () => new stateTableClass();
 exports.stateTable = stateTable;
 // type FilterInternalMethods<T> =
 //   T extends "_registerChild" | "_notifySubscribers" |

@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.debouncedObserver = exports.observer = exports.useNoboObserver = exports.triggerRefreshDebouncedObserver = exports.flushRefreshQueue = exports.nobostateComponentRefreshQueue = exports.useNoboIds = exports.useNoboMapSelector = exports.useNoboRefKey = exports.useNoboRef = exports.useNoboSelector = exports.useNoboKeys = exports.useNoboKey = exports.useNoboStateImpl = exports.useRefreshThisComponent = exports.useMounted = exports.useNoboState = void 0;
+exports.debouncedObserver = exports.observer = exports.useNoboObserver = exports.useNoboAutorun = exports.triggerRefreshDebouncedObserver = exports.flushRefreshQueue = exports.nobostateComponentRefreshQueue = exports.useNoboIds = exports.useNoboMapSelector = exports.useNoboRefKey = exports.useNoboRef = exports.useNoboSelector = exports.useNoboKeys = exports.useNoboKey = exports.useNoboStateImpl = exports.useRefreshThisComponent = exports.useMounted = exports.useNoboState = void 0;
 const lodash_1 = __importDefault(require("lodash"));
 const react_1 = require("react");
 const autorun_1 = require("./autorun");
@@ -234,6 +234,14 @@ function triggerRefreshDebouncedObserver() {
     // }
 }
 exports.triggerRefreshDebouncedObserver = triggerRefreshDebouncedObserver;
+function useNoboAutorun(f, dependencies) {
+    react_1.useEffect(() => {
+        return autorun_1.autorun(() => {
+            f();
+        });
+    }, [...(dependencies || [])]);
+}
+exports.useNoboAutorun = useNoboAutorun;
 function useNoboObserver(f, name, dependencies) {
     const valueAtLastRender = react_1.useRef();
     const [state, setState] = react_1.useState(f());

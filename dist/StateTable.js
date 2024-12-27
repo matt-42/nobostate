@@ -59,6 +59,10 @@ function stateTableMixin() {
             autorun_1.currentAutorunContext === null || autorun_1.currentAutorunContext === void 0 ? void 0 : autorun_1.currentAutorunContext.accesses.set({ state: this, key: null }, true);
             return [...this.values()].find(predicate);
         }
+        filter(predicate) {
+            autorun_1.currentAutorunContext === null || autorun_1.currentAutorunContext === void 0 ? void 0 : autorun_1.currentAutorunContext.accesses.set({ state: this, key: null }, true);
+            return [...this.values()].filter(predicate);
+        }
         values() {
             autorun_1.currentAutorunContext === null || autorun_1.currentAutorunContext === void 0 ? void 0 : autorun_1.currentAutorunContext.accesses.set({ state: this, key: null }, true);
             return super.values();
