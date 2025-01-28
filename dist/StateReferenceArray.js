@@ -217,6 +217,7 @@ class StateReferenceArray extends StateBase_1.stateBaseMixin(Object) {
         });
         this.registerNewElement(ref);
         (_d = this._logger()) === null || _d === void 0 ? void 0 : _d.groupEnd();
+        this._notifyThisSubscribers();
     }
     push(...elements) {
         // insertion of all elements grouped makes 1 history group.

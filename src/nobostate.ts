@@ -18,9 +18,11 @@ import { HasId, StateTable, stateTableMixin } from "./StateTable";
 //   } : T;
 
 
-const stateObjectClass = stateObjectMixin();
-export const stateObject = <T>(data: T) =>
-  new (stateObjectClass)(data) as any as StateObject<T>;
+let stateObjectClass = null as any;
+export const stateObject = <T>(data: T) => {
+  if (!stateObjectClass) stateObjectClass = stateObjectMixin();
+  return new (stateObjectClass)(data) as any as StateObject<T>;
+}
 
 export const stateArray = <T>() => new StateArray<T>();
 export const stateObjectArray = <T>() => new StateObjectArray<T>() as StateObjectArray<T>;

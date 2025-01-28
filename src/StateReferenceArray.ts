@@ -265,6 +265,9 @@ export class StateReferenceArray<T extends HasId<any>>
 
     this.registerNewElement(ref);
     this._logger()?.groupEnd();
+
+    this._notifyThisSubscribers();
+
   }
 
   push(...elements: (IdType<T> | T | StateObject<T>)[]): number {

@@ -16,8 +16,12 @@ const StateTable_1 = require("./StateTable");
 //   T extends Object ? {
 //     readonly [P in keyof T]: T[P] extends Function ? T[P] : ReadOnly<T[P]>;
 //   } : T;
-const stateObjectClass = StateObject_1.stateObjectMixin();
-const stateObject = (data) => new (stateObjectClass)(data);
+let stateObjectClass = null;
+const stateObject = (data) => {
+    if (!stateObjectClass)
+        stateObjectClass = StateObject_1.stateObjectMixin();
+    return new (stateObjectClass)(data);
+};
 exports.stateObject = stateObject;
 const stateArray = () => new StateArray_1.StateArray();
 exports.stateArray = stateArray;
