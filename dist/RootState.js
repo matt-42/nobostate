@@ -29,6 +29,15 @@ class RootStateImpl extends StateObject_1.stateObjectMixin() {
         });
         return valid;
     }
+    _ignoreNotifications(fn) {
+        try {
+            ignoreNotifications_1.ignoreNotifications.current = true;
+            fn();
+        }
+        finally {
+            ignoreNotifications_1.ignoreNotifications.current = false;
+        }
+    }
     _load(data) {
         try {
             ignoreNotifications_1.ignoreNotifications.current = true;

@@ -212,6 +212,7 @@ export declare class RootStateImpl<T> extends RootStateImpl_base {
     _isRootState: boolean;
     constructor(obj: any, options?: {});
     _checkReferencesNotNull(skipLog?: boolean): boolean;
+    _ignoreNotifications(fn: () => void): void;
     _load(data: any): void;
     _inTransaction: boolean;
     _transactionCompleteListeners: Map<StateBaseInterface<any> | ((...args: any[]) => void)[], {

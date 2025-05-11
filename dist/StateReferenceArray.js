@@ -226,7 +226,10 @@ class StateReferenceArray extends StateBase_1.stateBaseMixin(Object) {
                 this.insert(elt, this.length);
             });
         };
-        this._getRootState()._history ? this._getRootState()._history.group(insertall) : insertall();
+        this._getRootState()._ignoreNotifications(() => {
+            this._getRootState()._history ? this._getRootState()._history.group(insertall) : insertall();
+        });
+        // only one notification for all insertions.
         if (elements.length)
             this._notifyThisSubscribers();
         return this.length;

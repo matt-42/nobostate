@@ -168,6 +168,42 @@ test('autorun-on-stateArray-stateArrayReference-length', () => {
 
 });
 
+test('autorun-on-stateArray-debug', () => {
+  const state = createState({
+    table: stateTable<{ id: number }>(),
+    arr: stateArray<number>(),
+    refs: stateReferenceArray<{ id: number }>()
+  }, {
+    log: true,
+    setSpecs: (props, specs) => {
+      specs.referenceArray(props.refs, props.table);
+    }
+  });
+
+  const test = (run: () => void, modifier: () => void) => {
+    let called = 0;
+    const dispose = autorun(() => {
+      run();
+      called++;
+    });
+    expect(called).toBe(1);
+    modifier();
+    expect(called).toBe(2);
+    modifier();
+    expect(called).toBe(3);
+
+    dispose();
+  }
+
+
+  const A = state.table.insert({ id: newIntId() });
+  const B = state.table.insert({ id: newIntId() });
+  state.refs.push(A, B);
+  // test(() => state.refs.map(x => 0), () => state.refs.length = 1);
+  test(() => state.refs.map(x => 0), () => state.refs.push(B));
+
+});
+
 
 
 test('autorun on ref', () => {

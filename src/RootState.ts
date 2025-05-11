@@ -31,6 +31,14 @@ export class RootStateImpl<T> extends stateObjectMixin<{}>() {
     return valid;
   }
 
+  _ignoreNotifications(fn : () => void) {
+    try {
+      ignoreNotifications.current = true;
+      fn();
+    } finally {
+      ignoreNotifications.current = false;
+    }
+  }
   _load(data: any) {
     try {
       ignoreNotifications.current = true;

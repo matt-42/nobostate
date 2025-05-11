@@ -39,6 +39,7 @@ export declare function flushRefreshQueue(): void;
 export declare function triggerRefreshDebouncedObserver(): void;
 export declare function useNoboAutorun(f: () => void, dependencies?: any[]): void;
 export declare function useNoboObserver<R>(f: () => R, name?: string, dependencies?: any[]): R;
+export declare function useNoboObserverSynchronous<R>(f: () => R, dependencies?: any[]): R;
 export declare function observer<P>(component: React.FunctionComponent<P>, name?: string): React.FunctionComponent<P>;
 export declare function debouncedObserver<P>(component: React.FunctionComponent<P>, name?: string, waitMs?: number): React.FunctionComponent<P>;
 export {};

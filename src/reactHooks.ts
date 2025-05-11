@@ -365,6 +365,19 @@ export function useNoboObserver<R>(f : () => R, name? : string, dependencies? : 
   // return state;
 }
 
+export function useNoboObserverSynchronous<R>(f : () => R, dependencies? : any[]) {
+
+  const [state, setState] = useState<R>(f());
+
+  useEffect(() => {
+    return autorun(() => { 
+      const newVal = f();
+      return setState(newVal);     
+    });
+  }, [...(dependencies || [])]);
+
+  return state;
+}
 export function observer<P>(component : React.FunctionComponent<P>, name ? : string) :  React.FunctionComponent<P> {
   let firstCall = true;
   return (props: P) => {
