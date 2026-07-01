@@ -116,85 +116,86 @@ export function stateTableMixin<T extends HasId<any>>() {
       return () => { disposeOnInsert(); onRemoveDisposers.forEach(f => f()); disposed = true; }
     }
 
-    insert(value: T | StateObject<T>): StateObject<T> {
-
-      const run = this._getRootState()?._transaction || (<R>(x: () => R) => { return x(); });
-      const run2 = (<R>(x: () => R) => { return autorunIgnore(() => run(x)) })
-      return run2(() => {
-
-
-        let insert_code = () => {
-          // Compute new id if needed.
-          if ((value.id as any as NewIntId)._isNewIntId === true) {
-            let id = (this._lastInsertId || 0) + 1;
-            while (this.has(id)) id++;
-            value = { ...value, id };
-          }
-          if ((value.id as any as NewStringId)._isNewStringId === true) {
-            let id = parseInt(this._lastInsertId || "0") + 1;
-            while (this.has(id.toString())) id++;
-            value = { ...value, id: id.toString() };
-          }
-
-          // check if id already exists.
-          if (this.has(value.id))
-            throw new Error(`table ${this._path()} with id ${value.id} already exists`);
-
-          // Insert a new placeholder stateObject in the map.
-          // if value is already a state object, insert it directly.
-          let valueIsAlreadyAStateObject = (value as StateObject<T>)._isStateObject;
-          let elt = (valueIsAlreadyAStateObject ? value : anyStateObject() as any) as StateObject<T>;
-          super.set(value.id, elt);
-
-          // console.log(`${this._props?._path.join('/')}: insert id`, value.id);
-
-          // Update the placeholder with the new element attributes.
-          // updateState(this, value.id, value);
-          if (!valueIsAlreadyAStateObject)
-            autorunIgnore(() => elt._update(value));
-
-          let id = elt.id;
-          this._registerChild(id, elt);
-          propagatePropIds(elt, this._props);
-
-          this._lastInsertId = id;
-          
-          this._notifySubscribers(id, elt);
-          
-          // console.log(this._getRootState());
-          // console.log(this._getRootState()._history);
-          if (this._insertListeners.length) {
-            this._logger()?.groupLog(`Calling onInsert listeners for ${this._path()}`);
-            // [...this._insertListeners].forEach(f => this._runNotification(f, elt));
-            this._runNotification(this._insertListeners, elt);
-            this._logger()?.groupEnd();
-          }
-
-          const history = this._getRootState()._history;
-          if (history && this._props)
-            history.push({
-              action: "insert",
-              propId: this._props,
-              target: this as any,
-              element: elt
-            } as HistoryTableAction);
-
-
-          return elt;
-
-        }
-
-
+    insertImpl(value: T | StateObject<T>): StateObject<T> {
         this._logger()?.groupLog(`Insert in table ${this._path()} element: `);
         // if ((value as StateObject<T>)._isStateObject)
         //   this._logger()?.log(`stateObject with id ${value.id}`);
         this._logger()?.log(value);
 
-        let res = this._getRootStateHistory()?.group(insert_code) || insert_code();
+        // Compute new id if needed.
+        if ((value.id as any as NewIntId)._isNewIntId === true) {
+          let id = (this._lastInsertId || 0) + 1;
+          while (this.has(id)) id++;
+          value = { ...value, id };
+        }
+        if ((value.id as any as NewStringId)._isNewStringId === true) {
+          let id = parseInt(this._lastInsertId || "0") + 1;
+          while (this.has(id.toString())) id++;
+          value = { ...value, id: id.toString() };
+        }
+
+        // check if id already exists.
+        if (this.has(value.id))
+          throw new Error(`table ${this._path()} with id ${value.id} already exists`);
+
+        // Insert a new placeholder stateObject in the map.
+        // if value is already a state object, insert it directly.
+        let valueIsAlreadyAStateObject = (value as StateObject<T>)._isStateObject;
+        let elt = (valueIsAlreadyAStateObject ? value : anyStateObject() as any) as StateObject<T>;
+        super.set(value.id, elt);
+
+        // console.log(`${this._props?._path.join('/')}: insert id`, value.id);
+
+        // Update the placeholder with the new element attributes.
+        // updateState(this, value.id, value);
+        if (!valueIsAlreadyAStateObject)
+          autorunIgnore(() => elt._update(value));
+
+        let id = elt.id;
+        this._registerChild(id, elt);
+        propagatePropIds(elt, this._props);
+
+        this._lastInsertId = id;
+        
+        this._notifySubscribers(id, elt);
+        
+        // console.log(this._getRootState());
+        // console.log(this._getRootState()._history);
+        if (this._insertListeners.length) {
+          this._logger()?.groupLog(`Calling onInsert listeners for ${this._path()}`);
+          // [...this._insertListeners].forEach(f => this._runNotification(f, elt));
+          this._runNotification(this._insertListeners, elt);
+          this._logger()?.groupEnd();
+        }
+
+        const history = this._getRootState()._history;
+        if (history && this._props)
+          history.push({
+            action: "insert",
+            propId: this._props,
+            target: this as any,
+            element: elt
+          } as HistoryTableAction);
 
         this._logger()?.groupEnd();
-        return res;
-      });
+
+        return elt;
+
+      }
+
+    insert(value: T | StateObject<T>): StateObject<T> {
+
+      const root = this._getRootState();
+      const history = this._getRootStateHistory();
+
+      if (root && history) {
+        return autorunIgnore(() => root._transaction(() => history.group(() => this.insertImpl(value))));
+      }
+      const runWithTransaction = this._getRootState()?._transaction || (<R>(x: () => R) => { return x(); });
+      // const run2 = (<R>(x: () => R) => { return autorunIgnore(() => run(x)) })
+      return autorunIgnore(() => runWithTransaction(() => 
+         this._getRootStateHistory()?.group(() => this.insertImpl(value)) || this.insertImpl(value)
+      ));
 
     }
 
